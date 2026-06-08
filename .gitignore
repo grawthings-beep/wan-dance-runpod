@@ -1,0 +1,7 @@
+logs/
+outputs/
+*.zip
+__pycache__/
+*.pyc
+.env
+

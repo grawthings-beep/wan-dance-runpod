@@ -1,0 +1,54 @@
+{
+  "models": [
+    {
+      "name": "Wan 2.1 SCAIL 14B FP8 scaled",
+      "url": "https://huggingface.co/Kijai/WanVideo_comfy_fp8_scaled/resolve/main/SCAIL/Wan21-14B-SCAIL-preview_fp8_e4m3fn_scaled_KJ.safetensors",
+      "path": "models/diffusion_models/WanVideo/SCAIL/Wan21-14B-SCAIL-preview_fp8_e4m3fn_scaled_KJ.safetensors",
+      "min_bytes": 15000000000
+    },
+    {
+      "name": "Wan 2.1 VAE BF16",
+      "url": "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1_VAE_bf16.safetensors",
+      "path": "models/vae/wanvideo/Wan2_1_VAE_bf16.safetensors",
+      "min_bytes": 100000000
+    },
+    {
+      "name": "UMT5 XXL text encoder BF16",
+      "url": "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/umt5-xxl-enc-bf16.safetensors",
+      "path": "models/text_encoders/umt5-xxl-enc-bf16.safetensors",
+      "min_bytes": 5000000000
+    },
+    {
+      "name": "Lightx2v I2V 14B step distillation LoRA",
+      "url": "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors",
+      "path": "models/loras/WanVideo/Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors",
+      "min_bytes": 1000000000
+    },
+    {
+      "name": "Wan CLIP Vision H",
+      "url": "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors",
+      "path": "models/clip_vision/clip_vision_h.safetensors",
+      "min_bytes": 1000000000
+    },
+    {
+      "name": "ViTPose Large whole-body ONNX",
+      "url": "https://huggingface.co/JunkyByte/easy_ViTPose/resolve/main/onnx/wholebody/vitpose-l-wholebody.onnx",
+      "path": "models/detection/vitpose-l-wholebody.onnx",
+      "sha256": "89bdf6692d9224dbd5004dcef23a9ba2d54c5776212b359d5a5b5068ac14fd08",
+      "min_bytes": 1000000000
+    },
+    {
+      "name": "YOLOv10m person detector ONNX",
+      "url": "https://huggingface.co/Wan-AI/Wan2.2-Animate-14B/resolve/main/process_checkpoint/det/yolov10m.onnx",
+      "path": "models/detection/onnx/yolov10m.onnx",
+      "min_bytes": 10000000
+    },
+    {
+      "name": "NLF 3D pose model 0.3.2",
+      "url": "https://github.com/isarandi/nlf/releases/download/v0.3.2/nlf_l_multi_0.3.2.torchscript",
+      "path": "models/nlf/nlf_l_multi_0.3.2.torchscript",
+      "min_bytes": 100000000
+    }
+  ]
+}
+
