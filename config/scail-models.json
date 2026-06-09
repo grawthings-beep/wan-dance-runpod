@@ -22,7 +22,7 @@
       "name": "Lightx2v I2V 14B step distillation LoRA",
       "url": "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors",
       "path": "models/loras/WanVideo/Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors",
-      "min_bytes": 1000000000
+      "min_bytes": 700000000
     },
     {
       "name": "Wan CLIP Vision H",
@@ -51,4 +51,3 @@
     }
   ]
 }
-

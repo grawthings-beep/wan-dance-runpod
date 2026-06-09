@@ -9,7 +9,6 @@ matplotlib
 mss
 onnx
 onnxruntime-gpu
-opencv-python-headless
 peft>=0.17.0
 pillow>=10.3.0
 protobuf

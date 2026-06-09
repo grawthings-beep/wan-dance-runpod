@@ -1,76 +1,59 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-find_python() {
-  local candidate
-  for candidate in /opt/venv/bin/python /venv/bin/python /usr/local/bin/python3 /usr/bin/python3; do
-    if [[ -x "${candidate}" ]]; then
-      printf '%s\n' "${candidate}"
-      return 0
-    fi
-  done
-  command -v python3 || command -v python
-}
+# wan-dance provisioning wrapper.
+#
+# The base image (runpod/comfyui, source: runpod-workers/comfyui-base) ships
+# ComfyUI baked at /opt/comfyui-baked and its own entrypoint /start.sh that:
+#   - copies ComfyUI to /workspace/runpod-slim/ComfyUI on first boot
+#   - creates the python venv (.venv-cu128, --system-site-packages)
+#   - starts SSH / JupyterLab / FileBrowser
+#   - launches ComfyUI and keeps the container alive if it crashes
+#
+# This script only does wan-dance specific setup, then execs the base
+# entrypoint. It must never exit non-zero, or RunPod will restart the
+# container in a loop with no SSH access for debugging.
 
-find_comfyui() {
-  local candidate
-  if [[ -n "${COMFYUI_DIR:-}" && -f "${COMFYUI_DIR}/main.py" ]]; then
-    printf '%s\n' "${COMFYUI_DIR}"
-    return 0
-  fi
-  for candidate in /opt/ComfyUI /workspace/ComfyUI /workspace/comfyui /ComfyUI /comfyui /app/ComfyUI; do
-    if [[ -f "${candidate}/main.py" ]]; then
-      printf '%s\n' "${candidate}"
-      return 0
-    fi
-  done
-  return 1
-}
-
-PYTHON_BIN="$(find_python)" || {
-  echo "ERROR: Python was not found." >&2
-  exit 2
-}
-COMFYUI_DIR="$(find_comfyui)" || {
-  echo "ERROR: ComfyUI main.py was not found. Set COMFYUI_DIR." >&2
-  exit 2
-}
-
-WORKSPACE_DIR="${WORKSPACE_DIR:-/workspace/comfyui}"
-MODEL_ROOT="${MODEL_ROOT:-${WORKSPACE_DIR}}"
+BASE_START="/start.sh"
+COMFYUI_DIR="${COMFYUI_DIR:-/workspace/runpod-slim/ComfyUI}"
+BAKED_COMFYUI="${BAKED_COMFYUI:-/opt/comfyui-baked}"
+MODEL_ROOT="${MODEL_ROOT:-/workspace/comfyui}"
 CONFIG_DIR="${CONFIG_DIR:-/workspace/config}"
 LOG_DIR="${LOG_DIR:-/workspace/logs}"
 MODEL_MANIFEST="${MODEL_MANIFEST:-${CONFIG_DIR}/scail-models.json}"
-PORT="${PORT:-8188}"
-LISTEN="${LISTEN:-0.0.0.0}"
+ARGS_FILE="${ARGS_FILE:-/workspace/runpod-slim/comfyui_args.txt}"
 
+mkdir -p "${LOG_DIR}" "${CONFIG_DIR}"
+exec > >(tee -a "${LOG_DIR}/wan-dance-startup.log") 2>&1
+echo "[wan-dance] startup $(date -u +%FT%TZ)"
+
+# --- 1. Provision ComfyUI onto the network volume (same layout as base) ---
+if [[ ! -f "${COMFYUI_DIR}/main.py" ]]; then
+  if [[ -d "${BAKED_COMFYUI}" ]]; then
+    echo "[wan-dance] First boot: copying baked ComfyUI to ${COMFYUI_DIR}"
+    mkdir -p "$(dirname "${COMFYUI_DIR}")"
+    cp -r "${BAKED_COMFYUI}" "${COMFYUI_DIR}"
+  else
+    echo "[wan-dance] WARNING: ${BAKED_COMFYUI} missing and no ComfyUI at ${COMFYUI_DIR}." >&2
+    echo "[wan-dance] Wrong base image? Handing off to base entrypoint." >&2
+    exec "${BASE_START}"
+  fi
+fi
+
+# --- 2. Persistent model directories ---
 mkdir -p \
-  "${WORKSPACE_DIR}/input" \
-  "${WORKSPACE_DIR}/output" \
-  "${WORKSPACE_DIR}/user/default/workflows" \
   "${MODEL_ROOT}/models/clip_vision" \
   "${MODEL_ROOT}/models/detection/onnx" \
   "${MODEL_ROOT}/models/diffusion_models/WanVideo/SCAIL" \
   "${MODEL_ROOT}/models/loras/WanVideo/Lightx2v" \
   "${MODEL_ROOT}/models/nlf" \
   "${MODEL_ROOT}/models/text_encoders" \
-  "${MODEL_ROOT}/models/vae/wanvideo" \
-  "${CONFIG_DIR}" \
-  "${LOG_DIR}" \
-  "${COMFYUI_DIR}/custom_nodes"
+  "${MODEL_ROOT}/models/vae/wanvideo"
 
-exec > >(tee -a "${LOG_DIR}/wan-dance-startup.log") 2>&1
-
-COMFY_MODELS="${COMFYUI_DIR}/models"
-PERSISTENT_MODELS="${MODEL_ROOT}/models"
-if [[ "$(readlink -f "${COMFY_MODELS}" 2>/dev/null || printf '%s' "${COMFY_MODELS}")" != "$(readlink -f "${PERSISTENT_MODELS}")" ]]; then
-  if [[ -d "${COMFY_MODELS}" && ! -L "${COMFY_MODELS}" ]]; then
-    cp -an "${COMFY_MODELS}/." "${PERSISTENT_MODELS}/" || true
-  fi
-  rm -rf "${COMFY_MODELS}"
-  ln -s "${PERSISTENT_MODELS}" "${COMFY_MODELS}"
-fi
-
+# --- 3. Non-destructive model path mapping ---
+# Do NOT replace ${COMFYUI_DIR}/models with a symlink: on a shared volume
+# that risks duplicating or losing existing models. extra_model_paths.yaml
+# achieves the same lookup without touching anything.
 cat > "${COMFYUI_DIR}/extra_model_paths.yaml" <<YAML
 wan_dance_workspace:
   base_path: ${MODEL_ROOT}
@@ -79,8 +62,18 @@ wan_dance_workspace:
   loras: models/loras/
   text_encoders: models/text_encoders/
   vae: models/vae/
+  detection: models/detection/
 YAML
 
+# DownloadAndLoadNLFModel resolves folder_paths.models_dir directly and
+# ignores extra_model_paths, so link only the nlf subfolder.
+if [[ ! -e "${COMFYUI_DIR}/models/nlf" ]]; then
+  mkdir -p "${COMFYUI_DIR}/models"
+  ln -s "${MODEL_ROOT}/models/nlf" "${COMFYUI_DIR}/models/nlf"
+fi
+
+# --- 4. Pinned custom nodes ---
+mkdir -p "${COMFYUI_DIR}/custom_nodes"
 for source in /opt/wan-dance/custom_nodes/*; do
   name="$(basename "${source}")"
   target="${COMFYUI_DIR}/custom_nodes/${name}"
@@ -88,36 +81,50 @@ for source in /opt/wan-dance/custom_nodes/*; do
     if [[ "${FORCE_PINNED_NODES:-1}" == "1" ]]; then
       rm -rf "${target}"
     else
-      echo "KEEP existing custom node: ${target}"
+      echo "[wan-dance] KEEP existing custom node: ${target}"
       continue
     fi
   fi
   ln -s "${source}" "${target}"
 done
 
+# --- 5. Seed manifest and workflow ---
 if [[ ! -f "${MODEL_MANIFEST}" ]]; then
   cp /opt/wan-dance/config/scail-models.json "${MODEL_MANIFEST}"
 fi
-
-if [[ ! -f "${WORKSPACE_DIR}/user/default/workflows/wan21_scail_pose_dance.json" ]]; then
-  cp /opt/wan-dance/workflows/wan21_scail_pose_dance.json \
-    "${WORKSPACE_DIR}/user/default/workflows/wan21_scail_pose_dance.json"
+WORKFLOW_TARGET="${COMFYUI_DIR}/user/default/workflows/wan21_scail_pose_dance.json"
+mkdir -p "$(dirname "${WORKFLOW_TARGET}")"
+if [[ ! -f "${WORKFLOW_TARGET}" ]]; then
+  # The bundled workflow was authored on Windows; its model paths use
+  # backslashes (e.g. WanVideo\SCAIL\...). On Linux the filename lists are
+  # built with forward slashes, so unconverted values fail prompt
+  # validation with "value not in list". Normalize while seeding.
+  sed 's/\\\\/\//g' /opt/wan-dance/workflows/wan21_scail_pose_dance.json > "${WORKFLOW_TARGET}"
 fi
 
+# --- 6. ComfyUI args (read by the base entrypoint from comfyui_args.txt) ---
+mkdir -p "$(dirname "${ARGS_FILE}")"
+touch "${ARGS_FILE}"
+if ! grep -q "wan-dance defaults" "${ARGS_FILE}"; then
+  {
+    echo "# wan-dance defaults"
+    echo "--reserve-vram 3"
+  } >> "${ARGS_FILE}"
+fi
+
+# --- 7. Model downloads (non-fatal: pod must stay reachable on failure) ---
+PYTHON_BIN="$(command -v python3.12 || command -v python3)"
 if [[ "${DOWNLOAD_MODELS:-1}" == "1" ]]; then
-  "${PYTHON_BIN}" /opt/wan-dance/scripts/download_models.py \
-    --manifest "${MODEL_MANIFEST}" \
-    --root "${MODEL_ROOT}"
+  if ! "${PYTHON_BIN}" /opt/wan-dance/scripts/download_models.py \
+      --manifest "${MODEL_MANIFEST}" \
+      --root "${MODEL_ROOT}"; then
+    echo "[wan-dance] WARNING: model download failed. ComfyUI will still start." >&2
+    echo "[wan-dance] Re-run manually: ${PYTHON_BIN} /opt/wan-dance/scripts/download_models.py --manifest ${MODEL_MANIFEST} --root ${MODEL_ROOT}" >&2
+  fi
 else
-  echo "Skipping model downloads because DOWNLOAD_MODELS=${DOWNLOAD_MODELS:-0}."
+  echo "[wan-dance] Skipping model downloads (DOWNLOAD_MODELS=${DOWNLOAD_MODELS:-0})."
 fi
 
-cd "${COMFYUI_DIR}"
-exec "${PYTHON_BIN}" main.py \
-  --listen "${LISTEN}" \
-  --port "${PORT}" \
-  --enable-cors-header "${COMFYUI_CORS_ORIGIN:-*}" \
-  --input-directory "${WORKSPACE_DIR}/input" \
-  --output-directory "${WORKSPACE_DIR}/output" \
-  --user-directory "${WORKSPACE_DIR}/user" \
-  ${COMFYUI_ARGS:---reserve-vram 3}
+# --- 8. Hand off to the base entrypoint (SSH, Jupyter, venv, ComfyUI) ---
+echo "[wan-dance] Setup done. Handing off to ${BASE_START}"
+exec "${BASE_START}"

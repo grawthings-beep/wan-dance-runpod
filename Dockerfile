@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-ARG BASE_IMAGE=runpod/comfyui:latest
+ARG BASE_IMAGE=runpod/comfyui:1.4.1-cuda12.8
 FROM ${BASE_IMAGE}
 
 ARG WAN_WRAPPER_COMMIT=088128b224242e110d3906c6750e9a3a348a659b
@@ -38,15 +38,10 @@ RUN git clone --filter=blob:none --no-checkout https://github.com/kijai/ComfyUI-
     && find custom_nodes -type d -name .git -prune -exec rm -rf {} +
 
 COPY requirements-runtime.txt /opt/wan-dance/requirements-runtime.txt
-RUN set -eux; \
-    PYTHON_BIN=""; \
-    for candidate in /opt/venv/bin/python /venv/bin/python /usr/local/bin/python3 /usr/bin/python3; do \
-      if [ -x "${candidate}" ]; then PYTHON_BIN="${candidate}"; break; fi; \
-    done; \
-    if [ -z "${PYTHON_BIN}" ]; then PYTHON_BIN="$(command -v python3 || command -v python || true)"; fi; \
-    test -n "${PYTHON_BIN}"; \
-    "${PYTHON_BIN}" -m pip install --upgrade pip; \
-    "${PYTHON_BIN}" -m pip install -r /opt/wan-dance/requirements-runtime.txt
+# Base image python is system python3.12 (EXTERNALLY-MANAGED removed upstream).
+# The runtime venv (.venv-cu128) is created with --system-site-packages, so
+# packages installed here are visible inside it.
+RUN python3.12 -m pip install --no-cache-dir -r /opt/wan-dance/requirements-runtime.txt
 
 COPY config/ /opt/wan-dance/config/
 COPY scripts/ /opt/wan-dance/scripts/
@@ -55,6 +50,6 @@ RUN chmod +x /opt/wan-dance/scripts/*.sh
 
 EXPOSE 8188
 
-ENTRYPOINT []
-CMD ["/opt/wan-dance/scripts/start.sh"]
+# Our wrapper provisions wan-dance, then execs the base /start.sh
+ENTRYPOINT ["/opt/wan-dance/scripts/start.sh"]
 
