@@ -48,10 +48,11 @@ Set `DOWNLOAD_MODELS=0` only after all model files are already present.
 Set `FORCE_PINNED_NODES=0` if you intentionally want to manage the five custom
 node folders yourself.
 
-Downloads use up to four files in parallel and eight aria2 connections per
-file by default. Tune `DOWNLOAD_JOBS`, `ARIA2_CONNECTIONS`, and `ARIA2_SPLITS`
-if the provider rate-limits the Pod. Interrupted `.part` files are retained and
-resumed on the next start.
+Downloads use up to four files in parallel and sixteen aria2 connections per
+file by default, matching the LTX template's fast-download settings. Tune
+`DOWNLOAD_JOBS`, `ARIA2_CONNECTIONS`, and `ARIA2_SPLITS` if the provider
+rate-limits the Pod. Interrupted `.part` files are retained and resumed on the
+next start.
 
 `COMFYUI_ARGS` is written into the base image's persistent
 `comfyui_args.txt` on every start. The default is `--reserve-vram 3`.

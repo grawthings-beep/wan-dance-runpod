@@ -29,7 +29,7 @@ messages. ComfyUI starts after required files pass exact-size or checksum
 validation. Interrupted `.part` files resume on the next start.
 
 If Hugging Face rate-limits the Pod, reduce `DOWNLOAD_JOBS` from `4` to `2`, or
-reduce `ARIA2_CONNECTIONS` and `ARIA2_SPLITS` from `8` to `4`.
+reduce `ARIA2_CONNECTIONS` and `ARIA2_SPLITS` from `16` to `8`.
 
 ## 4. Use the workflow
 

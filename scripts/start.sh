@@ -131,8 +131,8 @@ if [[ "${DOWNLOAD_MODELS:-1}" == "1" ]]; then
       --manifest "${MODEL_MANIFEST}" \
       --root "${MODEL_ROOT}" \
       --jobs "${DOWNLOAD_JOBS:-4}" \
-      --connections "${ARIA2_CONNECTIONS:-8}" \
-      --splits "${ARIA2_SPLITS:-8}"; then
+      --connections "${ARIA2_CONNECTIONS:-16}" \
+      --splits "${ARIA2_SPLITS:-16}"; then
     echo "[wan-dance] WARNING: model download failed. ComfyUI will still start." >&2
     echo "[wan-dance] Re-run manually: ${PYTHON_BIN} /opt/wan-dance/scripts/download_models.py --manifest ${MODEL_MANIFEST} --root ${MODEL_ROOT}" >&2
   fi

@@ -179,12 +179,12 @@ def main():
     parser.add_argument(
         "--connections",
         type=int,
-        default=int(os.environ.get("ARIA2_CONNECTIONS", "8")),
+        default=int(os.environ.get("ARIA2_CONNECTIONS", "16")),
     )
     parser.add_argument(
         "--splits",
         type=int,
-        default=int(os.environ.get("ARIA2_SPLITS", "8")),
+        default=int(os.environ.get("ARIA2_SPLITS", "16")),
     )
     parser.add_argument(
         "--jobs",
