@@ -23,9 +23,13 @@ Copy the values from `runpod-template.env.example` into the template variables.
 
 ## 3. First start
 
-The first start downloads roughly 35-40 GB. Watch the Pod logs for `DOWNLOAD`
-and `SKIP existing` messages. ComfyUI starts only after required files pass
-size or checksum validation.
+The first start downloads roughly 32 GB. Four files download in parallel by
+default. Watch the Pod logs for `DOWNLOAD`, `READY`, and `SKIP existing`
+messages. ComfyUI starts after required files pass exact-size or checksum
+validation. Interrupted `.part` files resume on the next start.
+
+If Hugging Face rate-limits the Pod, reduce `DOWNLOAD_JOBS` from `4` to `2`, or
+reduce `ARIA2_CONNECTIONS` and `ARIA2_SPLITS` from `8` to `4`.
 
 ## 4. Use the workflow
 

@@ -34,18 +34,47 @@ def main():
     paths = set()
     for model in manifest["models"]:
         require(model["url"].startswith("https://"), f"Non-HTTPS URL: {model['name']}")
+        if "huggingface.co" in model["url"]:
+            require(
+                re.search(r"/resolve/[0-9a-f]{40}/", model["url"]) is not None,
+                f"Hugging Face URL is not pinned to a revision: {model['name']}",
+            )
         require(model["path"].startswith("models/"), f"Model path must be under models/: {model['name']}")
         require(model["path"] not in paths, f"Duplicate model path: {model['path']}")
         require(int(model.get("min_bytes", 0)) > 0, f"Missing min_bytes: {model['name']}")
+        require(
+            int(model.get("size_bytes", 0)) >= int(model["min_bytes"]),
+            f"Missing or invalid size_bytes: {model['name']}",
+        )
         paths.add(model["path"])
 
     node_config = json.loads(NODES.read_text(encoding="utf-8"))
     require(len(node_config.get("nodes", [])) == 5, "Expected exactly 5 pinned custom nodes")
     dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    require(
+        re.search(r"ARG BASE_IMAGE=.+@sha256:[0-9a-f]{64}", dockerfile) is not None,
+        "Base image is not pinned by digest",
+    )
     for node in node_config["nodes"]:
         require(re.fullmatch(r"[0-9a-f]{40}", node["commit"]) is not None, f"Bad commit: {node['name']}")
         require(node["repository"] in dockerfile, f"Dockerfile is missing {node['repository']}")
         require(node["commit"] in dockerfile, f"Dockerfile is missing commit for {node['name']}")
+    require("aria2" in dockerfile, "Docker image must include aria2")
+    require("import cv2" in dockerfile, "Dockerfile is missing the dependency import smoke test")
+    require("--quick-test-for-ci" in dockerfile, "Dockerfile is missing the custom-node smoke test")
+    for node in node_config["nodes"]:
+        require(node["name"] in dockerfile, f"Custom-node smoke test is missing {node['name']}")
+
+    downloader = (ROOT / "scripts" / "download_models.py").read_text(encoding="utf-8")
+    require("ThreadPoolExecutor" in downloader, "Downloader is not parallel")
+    require('"aria2c"' in downloader, "Downloader does not use aria2c")
+    require("DOWNLOAD_JOBS" in downloader, "Downloader is missing DOWNLOAD_JOBS")
+    require("ARIA2_CONNECTIONS" in downloader, "Downloader is missing ARIA2_CONNECTIONS")
+
+    startup = (ROOT / "scripts" / "start.sh").read_text(encoding="utf-8")
+    require("COMFYUI_ARGS" in startup, "Startup does not apply COMFYUI_ARGS")
+    require("NLF_TARGET" in startup, "Startup does not map the NLF model into ComfyUI")
+    require("nlf: models/nlf/" in startup, "extra_model_paths.yaml is missing nlf")
 
     workflow = json.loads(WORKFLOW.read_text(encoding="utf-8"))
     node_types = {node.get("type") for node in workflow.get("nodes", [])}
@@ -76,10 +105,10 @@ def main():
 
     print("Repository validation passed.")
     print(f"Models managed: {len(manifest['models'])}")
+    print(f"Managed model bytes: {sum(int(model['size_bytes']) for model in manifest['models'])}")
     print(f"Pinned custom nodes: {len(node_config['nodes'])}")
     print(f"Workflow nodes: {len(workflow['nodes'])}")
 
 
 if __name__ == "__main__":
     main()
-

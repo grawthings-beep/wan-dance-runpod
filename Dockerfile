@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-ARG BASE_IMAGE=runpod/comfyui:1.4.1-cuda12.8
+ARG BASE_IMAGE=runpod/comfyui:1.4.1-cuda12.8@sha256:ec9620c0eee0a3f92b58c1647153d1ac0d4c72fc910a7c882ddd89d90391378a
 FROM ${BASE_IMAGE}
 
 ARG WAN_WRAPPER_COMMIT=088128b224242e110d3906c6750e9a3a348a659b
@@ -42,6 +42,26 @@ COPY requirements-runtime.txt /opt/wan-dance/requirements-runtime.txt
 # The runtime venv (.venv-cu128) is created with --system-site-packages, so
 # packages installed here are visible inside it.
 RUN python3.12 -m pip install --no-cache-dir -r /opt/wan-dance/requirements-runtime.txt
+RUN python3.12 -c "import cv2, diffusers, onnx, onnxruntime, taichi; import google.protobuf"
+RUN set -eux; \
+    for source in /opt/wan-dance/custom_nodes/*; do \
+      name="$(basename "${source}")"; \
+      rm -rf "/opt/comfyui-baked/custom_nodes/${name}"; \
+      ln -s "${source}" "/opt/comfyui-baked/custom_nodes/${name}"; \
+    done; \
+    cd /opt/comfyui-baked; \
+    python3.12 main.py \
+      --cpu \
+      --quick-test-for-ci \
+      --disable-api-nodes \
+      --database-url sqlite:///:memory: \
+      --disable-all-custom-nodes \
+      --whitelist-custom-nodes \
+        ComfyUI-WanVideoWrapper \
+        ComfyUI-SCAIL-Pose \
+        ComfyUI-WanAnimatePreprocess \
+        ComfyUI-KJNodes \
+        ComfyUI-VideoHelperSuite
 
 COPY config/ /opt/wan-dance/config/
 COPY scripts/ /opt/wan-dance/scripts/
@@ -52,4 +72,3 @@ EXPOSE 8188
 
 # Our wrapper provisions wan-dance, then execs the base /start.sh
 ENTRYPOINT ["/opt/wan-dance/scripts/start.sh"]
-

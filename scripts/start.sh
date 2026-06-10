@@ -63,13 +63,17 @@ wan_dance_workspace:
   text_encoders: models/text_encoders/
   vae: models/vae/
   detection: models/detection/
+  nlf: models/nlf/
 YAML
 
-# DownloadAndLoadNLFModel resolves folder_paths.models_dir directly and
-# ignores extra_model_paths, so link only the nlf subfolder.
-if [[ ! -e "${COMFYUI_DIR}/models/nlf" ]]; then
-  mkdir -p "${COMFYUI_DIR}/models"
-  ln -s "${MODEL_ROOT}/models/nlf" "${COMFYUI_DIR}/models/nlf"
+# DownloadAndLoadNLFModel resolves this exact path under models_dir and ignores
+# extra_model_paths. Link the file rather than the whole directory so an
+# existing models/nlf directory does not disable the persistent model.
+NLF_SOURCE="${MODEL_ROOT}/models/nlf/nlf_l_multi_0.3.2.torchscript"
+NLF_TARGET="${COMFYUI_DIR}/models/nlf/nlf_l_multi_0.3.2.torchscript"
+mkdir -p "${COMFYUI_DIR}/models/nlf"
+if [[ ! -e "${NLF_TARGET}" && ! -L "${NLF_TARGET}" ]]; then
+  ln -s "${NLF_SOURCE}" "${NLF_TARGET}"
 fi
 
 # --- 4. Pinned custom nodes ---
@@ -105,19 +109,30 @@ fi
 # --- 6. ComfyUI args (read by the base entrypoint from comfyui_args.txt) ---
 mkdir -p "$(dirname "${ARGS_FILE}")"
 touch "${ARGS_FILE}"
-if ! grep -q "wan-dance defaults" "${ARGS_FILE}"; then
-  {
-    echo "# wan-dance defaults"
-    echo "--reserve-vram 3"
-  } >> "${ARGS_FILE}"
-fi
+ARGS_TMP="${ARGS_FILE}.wan-dance.tmp"
+awk '
+  /^# wan-dance managed args begin$/ { managed = 1; next }
+  /^# wan-dance managed args end$/ { managed = 0; next }
+  /^# wan-dance defaults$/ { legacy = 1; next }
+  legacy == 1 { legacy = 0; next }
+  managed != 1 { print }
+' "${ARGS_FILE}" > "${ARGS_TMP}"
+mv "${ARGS_TMP}" "${ARGS_FILE}"
+{
+  echo "# wan-dance managed args begin"
+  printf '%s\n' "${COMFYUI_ARGS:---reserve-vram 3}"
+  echo "# wan-dance managed args end"
+} >> "${ARGS_FILE}"
 
 # --- 7. Model downloads (non-fatal: pod must stay reachable on failure) ---
 PYTHON_BIN="$(command -v python3.12 || command -v python3)"
 if [[ "${DOWNLOAD_MODELS:-1}" == "1" ]]; then
   if ! "${PYTHON_BIN}" /opt/wan-dance/scripts/download_models.py \
       --manifest "${MODEL_MANIFEST}" \
-      --root "${MODEL_ROOT}"; then
+      --root "${MODEL_ROOT}" \
+      --jobs "${DOWNLOAD_JOBS:-4}" \
+      --connections "${ARIA2_CONNECTIONS:-8}" \
+      --splits "${ARIA2_SPLITS:-8}"; then
     echo "[wan-dance] WARNING: model download failed. ComfyUI will still start." >&2
     echo "[wan-dance] Re-run manually: ${PYTHON_BIN} /opt/wan-dance/scripts/download_models.py --manifest ${MODEL_MANIFEST} --root ${MODEL_ROOT}" >&2
   fi

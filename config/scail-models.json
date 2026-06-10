@@ -2,51 +2,59 @@
   "models": [
     {
       "name": "Wan 2.1 SCAIL 14B FP8 scaled",
-      "url": "https://huggingface.co/Kijai/WanVideo_comfy_fp8_scaled/resolve/main/SCAIL/Wan21-14B-SCAIL-preview_fp8_e4m3fn_scaled_KJ.safetensors",
+      "url": "https://huggingface.co/Kijai/WanVideo_comfy_fp8_scaled/resolve/9d68962e81601f420128b52d62c86611cb84ad25/SCAIL/Wan21-14B-SCAIL-preview_fp8_e4m3fn_scaled_KJ.safetensors",
       "path": "models/diffusion_models/WanVideo/SCAIL/Wan21-14B-SCAIL-preview_fp8_e4m3fn_scaled_KJ.safetensors",
+      "size_bytes": 16401525232,
       "min_bytes": 15000000000
     },
     {
       "name": "Wan 2.1 VAE BF16",
-      "url": "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1_VAE_bf16.safetensors",
+      "url": "https://huggingface.co/Kijai/WanVideo_comfy/resolve/57327d118dc67098c170a1edbc1e134bd8ac9620/Wan2_1_VAE_bf16.safetensors",
       "path": "models/vae/wanvideo/Wan2_1_VAE_bf16.safetensors",
+      "size_bytes": 253806278,
       "min_bytes": 100000000
     },
     {
       "name": "UMT5 XXL text encoder BF16",
-      "url": "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/umt5-xxl-enc-bf16.safetensors",
+      "url": "https://huggingface.co/Kijai/WanVideo_comfy/resolve/57327d118dc67098c170a1edbc1e134bd8ac9620/umt5-xxl-enc-bf16.safetensors",
       "path": "models/text_encoders/umt5-xxl-enc-bf16.safetensors",
+      "size_bytes": 11361845464,
       "min_bytes": 5000000000
     },
     {
       "name": "Lightx2v I2V 14B step distillation LoRA",
-      "url": "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors",
+      "url": "https://huggingface.co/Kijai/WanVideo_comfy/resolve/57327d118dc67098c170a1edbc1e134bd8ac9620/Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors",
       "path": "models/loras/WanVideo/Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors",
+      "size_bytes": 738005744,
       "min_bytes": 700000000
     },
     {
       "name": "Wan CLIP Vision H",
-      "url": "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/06e001fc51048fb03433a6fb25334de7836704a5/split_files/clip_vision/clip_vision_h.safetensors",
       "path": "models/clip_vision/clip_vision_h.safetensors",
+      "size_bytes": 1264219396,
       "min_bytes": 1000000000
     },
     {
       "name": "ViTPose Large whole-body ONNX",
-      "url": "https://huggingface.co/JunkyByte/easy_ViTPose/resolve/main/onnx/wholebody/vitpose-l-wholebody.onnx",
+      "url": "https://huggingface.co/JunkyByte/easy_ViTPose/resolve/e83805274e89428969355ec4afffcbc413e79188/onnx/wholebody/vitpose-l-wholebody.onnx",
       "path": "models/detection/vitpose-l-wholebody.onnx",
       "sha256": "89bdf6692d9224dbd5004dcef23a9ba2d54c5776212b359d5a5b5068ac14fd08",
+      "size_bytes": 1234579166,
       "min_bytes": 1000000000
     },
     {
       "name": "YOLOv10m person detector ONNX",
-      "url": "https://huggingface.co/Wan-AI/Wan2.2-Animate-14B/resolve/main/process_checkpoint/det/yolov10m.onnx",
+      "url": "https://huggingface.co/Wan-AI/Wan2.2-Animate-14B/resolve/cb93a225fbaf1ca100f54e79da8f994995b689b3/process_checkpoint/det/yolov10m.onnx",
       "path": "models/detection/onnx/yolov10m.onnx",
+      "size_bytes": 61659339,
       "min_bytes": 10000000
     },
     {
       "name": "NLF 3D pose model 0.3.2",
       "url": "https://github.com/isarandi/nlf/releases/download/v0.3.2/nlf_l_multi_0.3.2.torchscript",
       "path": "models/nlf/nlf_l_multi_0.3.2.torchscript",
+      "size_bytes": 493117974,
       "min_bytes": 100000000
     }
   ]
