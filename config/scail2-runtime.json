@@ -7,14 +7,20 @@
     "pose_commit": "519c7f54cb972e7f92684213b7ef6c3e05a8f3b2",
     "model_repository": "zai-org/SCAIL-2",
     "model_revision": "dbb6477f5a6d1b65bd1a1ac4df4e46bd3f2b5658",
+    "scail_weights_repository": "Comfy-Org/SCAIL-2",
+    "scail_weights_revision": "86e1d4f5062f9c518d2b4b66e7aa3cc5110b38ec",
     "checkpoint_dir": "/workspace/scail2/models/SCAIL-2",
-    "converted_path": "/workspace/scail2/models/SCAIL-2.safetensors",
-    "converted_min_bytes": 25000000000,
+    "scail_weights_dir": "/workspace/scail2/models/Comfy-Org-SCAIL-2",
+    "scail_path": "/workspace/scail2/models/Comfy-Org-SCAIL-2/diffusion_models/wan2.1_14B_SCAIL_2_fp16.safetensors",
+    "scail_min_bytes": 32700000000,
     "allow_patterns": [
       "Wan2.1_VAE.pth",
       "models_clip_open-clip-xlm-roberta-large-vit-huge-14-onlyvisual.pth",
-      "model/1/fsdp2_rank_0000_checkpoint.pt",
       "umt5-xxl/*",
+      "README.md"
+    ],
+    "scail_allow_patterns": [
+      "diffusion_models/wan2.1_14B_SCAIL_2_fp16.safetensors",
       "README.md"
     ],
     "required_files": [
@@ -25,10 +31,6 @@
       {
         "path": "models_clip_open-clip-xlm-roberta-large-vit-huge-14-onlyvisual.pth",
         "min_bytes": 1000000000
-      },
-      {
-        "path": "model/1/fsdp2_rank_0000_checkpoint.pt",
-        "min_bytes": 25000000000
       },
       {
         "path": "umt5-xxl/models_t5_umt5-xxl-enc-bf16.pth",

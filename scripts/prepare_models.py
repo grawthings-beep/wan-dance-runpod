@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 import argparse
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
-import subprocess
-import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,6 +30,24 @@ def require_file(path, min_bytes, label):
         )
 
 
+@contextmanager
+def prepare_lock(config):
+    model_root = expand_path(os.environ.get("MODEL_ROOT", "/workspace/scail2/models"))
+    model_root.mkdir(parents=True, exist_ok=True)
+    lock_path = model_root / ".prepare.lock"
+    with lock_path.open("w", encoding="utf-8") as handle:
+        if os.name == "posix":
+            import fcntl
+
+            print(f"Waiting for model-preparation lock: {lock_path}", flush=True)
+            fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            if os.name == "posix":
+                fcntl.flock(handle, fcntl.LOCK_UN)
+
+
 def snapshot_download(repo_id, revision, local_dir, allow_patterns):
     from huggingface_hub import snapshot_download as hf_snapshot_download
 
@@ -46,13 +63,16 @@ def snapshot_download(repo_id, revision, local_dir, allow_patterns):
     )
 
 
-def ensure_scail2(config, skip_download=False, force_convert=False):
+def ensure_scail2(config, skip_download=False):
     scail = config["scail2"]
     checkpoint_dir = expand_path(
         os.environ.get("SCAIL2_CKPT_DIR", scail["checkpoint_dir"])
     )
-    converted_path = expand_path(
-        os.environ.get("SCAIL2_SAFETENSORS", scail["converted_path"])
+    scail_weights_dir = expand_path(
+        os.environ.get("SCAIL2_WEIGHTS_DIR", scail["scail_weights_dir"])
+    )
+    scail_path = expand_path(
+        os.environ.get("SCAIL2_SAFETENSORS", scail["scail_path"])
     )
 
     if not skip_download:
@@ -62,6 +82,12 @@ def ensure_scail2(config, skip_download=False, force_convert=False):
             checkpoint_dir,
             scail["allow_patterns"],
         )
+        snapshot_download(
+            scail["scail_weights_repository"],
+            os.environ.get("SCAIL2_WEIGHTS_REVISION", scail["scail_weights_revision"]),
+            scail_weights_dir,
+            scail["scail_allow_patterns"],
+        )
 
     for item in scail["required_files"]:
         require_file(
@@ -69,33 +95,11 @@ def ensure_scail2(config, skip_download=False, force_convert=False):
             item["min_bytes"],
             f"SCAIL-2 file {item['path']}",
         )
+    require_file(scail_path, scail["scail_min_bytes"], "SCAIL-2 safetensors")
 
-    if (
-        not force_convert
-        and file_is_large_enough(converted_path, scail["converted_min_bytes"])
-    ):
-        print(f"SKIP converted checkpoint: {converted_path}", flush=True)
-        return converted_path
-
-    converted_path.parent.mkdir(parents=True, exist_ok=True)
-    temp_path = converted_path.with_suffix(converted_path.suffix + ".part")
-    temp_path.unlink(missing_ok=True)
-
-    scail2_repo = expand_path(os.environ.get("SCAIL2_REPO", "/opt/SCAIL-2"))
-    command = [
-        sys.executable,
-        str(scail2_repo / "convert.py"),
-        "--scail-dir",
-        str(checkpoint_dir),
-        "--save-path",
-        str(temp_path),
-    ]
-    print("Converting SCAIL-2 FSDP checkpoint to safetensors.", flush=True)
-    subprocess.run(command, cwd=str(scail2_repo), check=True)
-    require_file(temp_path, scail["converted_min_bytes"], "converted SCAIL-2 checkpoint")
-    temp_path.replace(converted_path)
-    print(f"Converted checkpoint ready: {converted_path}", flush=True)
-    return converted_path
+    print(f"SCAIL-2 runtime files ready: {checkpoint_dir}", flush=True)
+    print(f"SCAIL-2 weights ready: {scail_path}", flush=True)
+    return scail_path
 
 
 def ensure_sam3(config, required=False):
@@ -130,19 +134,18 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
     parser.add_argument("--skip-download", action="store_true")
-    parser.add_argument("--force-convert", action="store_true")
     parser.add_argument("--download-sam3", action="store_true")
     parser.add_argument("--require-sam3", action="store_true")
     args = parser.parse_args()
 
     config = load_config(args.config)
-    ensure_scail2(
-        config,
-        skip_download=args.skip_download,
-        force_convert=args.force_convert,
-    )
-    if args.download_sam3 or args.require_sam3:
-        ensure_sam3(config, required=args.require_sam3)
+    with prepare_lock(config):
+        ensure_scail2(
+            config,
+            skip_download=args.skip_download,
+        )
+        if args.download_sam3 or args.require_sam3:
+            ensure_sam3(config, required=args.require_sam3)
 
 
 if __name__ == "__main__":

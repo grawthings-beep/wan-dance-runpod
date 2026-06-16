@@ -34,9 +34,13 @@ def main():
     require(re.fullmatch(r"[0-9a-f]{40}", scail["code_commit"]) is not None, "Bad SCAIL-2 code commit")
     require(re.fullmatch(r"[0-9a-f]{40}", scail["pose_commit"]) is not None, "Bad SCAIL-Pose commit")
     require(re.fullmatch(r"[0-9a-f]{40}", scail["model_revision"]) is not None, "Bad SCAIL-2 model revision")
+    require(re.fullmatch(r"[0-9a-f]{40}", scail["scail_weights_revision"]) is not None, "Bad SCAIL-2 weights revision")
     require(scail["code_commit"] in dockerfile, "Dockerfile is missing pinned SCAIL-2 commit")
     require(scail["pose_commit"] in dockerfile, "Dockerfile is missing pinned SCAIL-Pose commit")
-    require(len(scail["required_files"]) >= 8, "Expected official SCAIL-2 files")
+    require(len(scail["required_files"]) >= 7, "Expected official SCAIL-2 support files")
+    require("model/1/fsdp2_rank_0000_checkpoint.pt" not in json.dumps(scail), "FSDP checkpoint should not be downloaded")
+    require(scail["scail_path"].endswith("wan2.1_14B_SCAIL_2_fp16.safetensors"), "Expected direct fp16 safetensors")
+    require(int(scail["scail_min_bytes"]) >= 32700000000, "SCAIL-2 safetensors min size is too low")
     for item in scail["required_files"]:
         require(int(item["min_bytes"]) > 0, f"Missing min_bytes: {item['path']}")
 
@@ -74,6 +78,7 @@ def main():
     print("Repository validation passed.")
     print(f"SCAIL-2 code: {scail['code_commit']}")
     print(f"SCAIL-2 model revision: {scail['model_revision']}")
+    print(f"SCAIL-2 weights revision: {scail['scail_weights_revision']}")
     print(f"SAM3 auto-mask: optional gated model")
 
 

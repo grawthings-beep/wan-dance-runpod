@@ -13,9 +13,13 @@ APP_ROOT = Path(os.environ.get("APP_ROOT", "/opt/wan-dance"))
 SCAIL2_REPO = Path(os.environ.get("SCAIL2_REPO", "/opt/SCAIL-2"))
 WORKSPACE_DIR = Path(os.environ.get("WORKSPACE_DIR", "/workspace/scail2"))
 OUTPUT_DIR = Path(os.environ.get("OUTPUT_DIR", str(WORKSPACE_DIR / "output")))
+RUNTIME_CONFIG = Path(os.environ.get("RUNTIME_CONFIG", "/workspace/config/scail2-runtime.json"))
 DEFAULT_CKPT_DIR = Path(os.environ.get("SCAIL2_CKPT_DIR", str(WORKSPACE_DIR / "models" / "SCAIL-2")))
 DEFAULT_SAFETENSORS = Path(
-    os.environ.get("SCAIL2_SAFETENSORS", str(WORKSPACE_DIR / "models" / "SCAIL-2.safetensors"))
+    os.environ.get(
+        "SCAIL2_SAFETENSORS",
+        str(WORKSPACE_DIR / "models" / "Comfy-Org-SCAIL-2" / "diffusion_models" / "wan2.1_14B_SCAIL_2_fp16.safetensors"),
+    )
 )
 DEFAULT_SAM3 = Path(os.environ.get("SAM3_MODEL", str(WORKSPACE_DIR / "models" / "sam3" / "sam3.pt")))
 
@@ -43,6 +47,20 @@ def make_job_dir():
     job_dir = WORKSPACE_DIR / "jobs" / f"{stamp}_{uuid.uuid4().hex[:8]}"
     job_dir.mkdir(parents=True, exist_ok=True)
     return job_dir
+
+
+def ensure_models(args):
+    if os.environ.get("ENSURE_MODELS", "1") != "1":
+        return
+    command = [
+        sys.executable,
+        str(APP_ROOT / "scripts" / "prepare_models.py"),
+        "--config",
+        str(RUNTIME_CONFIG),
+    ]
+    if args.auto_mask:
+        command.append("--download-sam3")
+    run(command, cwd=APP_ROOT)
 
 
 def prepare_auto_masks(args, job_dir):
@@ -109,7 +127,7 @@ def prepare_manual_inputs(args):
 
 def generate(args, inputs, output_file):
     require_path(DEFAULT_CKPT_DIR / "Wan2.1_VAE.pth", "SCAIL-2 checkpoint directory")
-    require_path(DEFAULT_SAFETENSORS, "converted SCAIL-2 safetensors")
+    require_path(DEFAULT_SAFETENSORS, "SCAIL-2 safetensors")
     for label, path in inputs.items():
         require_path(path, label)
 
@@ -201,6 +219,7 @@ def main():
     args = parse_args()
     require_path(args.image, "reference image")
     require_path(args.driving_video, "driving video")
+    ensure_models(args)
     job_dir = make_job_dir()
     inputs = prepare_auto_masks(args, job_dir) if args.auto_mask else prepare_manual_inputs(args)
     output_file = Path(args.output) if args.output else OUTPUT_DIR / f"{job_dir.name}.mp4"

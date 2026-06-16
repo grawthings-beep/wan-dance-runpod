@@ -14,7 +14,7 @@ Make the GHCR package public, or configure RunPod registry credentials.
 
 - Container image: the GHCR image above
 - Container disk: 30 GB or more
-- Network volume: 120 GB recommended
+- Network volume: 100 GB recommended
 - Volume mount path: `/workspace`
 - Expose HTTP port: `8188`
 - GPU: 48 GB recommended
@@ -23,12 +23,14 @@ Copy the values from `runpod-template.env.example` into the template variables.
 
 ## 3. First start
 
-The first start downloads the official SCAIL-2 checkpoint and converts it to
-`/workspace/scail2/models/SCAIL-2.safetensors`. This is large and can take a
-while. Watch `/workspace/logs/wan-dance-startup.log`.
+The UI starts immediately. In the background, the container downloads the
+official SCAIL-2 support files plus the already-converted Comfy-Org fp16
+safetensors file. Watch `/workspace/logs/wan-dance-startup.log`.
 
 Set `DOWNLOAD_SAM3=1` only if the `HF_TOKEN` account has access to
-`facebook/sam3`. Without SAM3, the UI still works in manual-mask mode.
+`facebook/sam3` and you want to prefetch it. Without prefetch, the first
+auto-mask generation downloads SAM3 on demand. The UI still works in manual-mask
+mode without SAM3.
 
 ## 4. Use the UI
 

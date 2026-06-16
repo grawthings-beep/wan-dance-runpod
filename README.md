@@ -19,9 +19,10 @@ directly instead of the older ComfyUI SCAIL-Preview pose workflow.
 
 - Recommended GPU: 48 GB VRAM or more.
 - 24 GB may be tight and should be treated as experimental.
-- Network volume: 90 GB minimum, 120 GB recommended.
-- First start downloads roughly 45 GB and converts the FSDP checkpoint to a
-  safetensors file of roughly 30 GB.
+- Network volume: 70 GB minimum, 100 GB recommended.
+- First use downloads roughly 45 GB. The image uses the already converted
+  `Comfy-Org/SCAIL-2` fp16 safetensors file, so there is no startup-time
+  checkpoint conversion.
 
 ## Quick Start
 
@@ -30,8 +31,7 @@ directly instead of the older ComfyUI SCAIL-Preview pose workflow.
 3. Attach a network volume at `/workspace`.
 4. Expose HTTP port `8188`.
 5. Set `HF_TOKEN` to a Hugging Face token.
-6. Wait for the first model download and conversion to finish.
-7. Open the Gradio UI on port `8188`.
+6. Open the Gradio UI on port `8188`.
 8. Upload a reference image and a driving video.
 9. Enable auto-mask if your token has access to `facebook/sam3`, or upload
    prepared SCAIL-2 mask files manually.
@@ -77,8 +77,13 @@ track should be selected.
 
 See `runpod-template.env.example`.
 
-- `DOWNLOAD_MODELS=1` downloads SCAIL-2 and converts it at startup.
-- `DOWNLOAD_SAM3=1` also downloads `facebook/sam3` for auto-mask. This model is
+- `DOWNLOAD_MODELS=1` downloads SCAIL-2 support files and direct fp16 weights.
+- `PREPARE_MODELS_BACKGROUND=1` starts the UI immediately while model files
+  download in the background.
+- `ENSURE_MODELS=1` makes generation wait for missing model files instead of
+  failing immediately.
+- `DOWNLOAD_SAM3=1` pre-downloads `facebook/sam3` for auto-mask. If this is
+  `0`, the first auto-mask generation downloads it on demand. This model is
   gated, so the `HF_TOKEN` account must have accepted the license.
 - `START_GRADIO=1` starts the web UI on `PORT`, default `8188`.
 - `DOWNLOAD_MODELS=0` is useful after the network volume is already prepared.

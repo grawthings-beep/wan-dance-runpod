@@ -19,21 +19,30 @@ export PYTHONPATH="${SCAIL2_REPO}:${SCAIL2_REPO}/SCAIL-Pose:${PYTHONPATH:-}"
 export HF_HOME="${HF_HOME:-/workspace/.cache/huggingface}"
 export OUTPUT_DIR="${OUTPUT_DIR:-${WORKSPACE_DIR}/output}"
 export SCAIL2_CKPT_DIR="${SCAIL2_CKPT_DIR:-${MODEL_ROOT}/SCAIL-2}"
-export SCAIL2_SAFETENSORS="${SCAIL2_SAFETENSORS:-${MODEL_ROOT}/SCAIL-2.safetensors}"
+export SCAIL2_WEIGHTS_DIR="${SCAIL2_WEIGHTS_DIR:-${MODEL_ROOT}/Comfy-Org-SCAIL-2}"
+export SCAIL2_SAFETENSORS="${SCAIL2_SAFETENSORS:-${SCAIL2_WEIGHTS_DIR}/diffusion_models/wan2.1_14B_SCAIL_2_fp16.safetensors}"
 export SAM3_MODEL="${SAM3_MODEL:-${MODEL_ROOT}/sam3/sam3.pt}"
 
 if [[ ! -f "${RUNTIME_CONFIG}" ]]; then
   cp "${APP_ROOT}/config/scail2-runtime.json" "${RUNTIME_CONFIG}"
 fi
 
-if [[ "${DOWNLOAD_MODELS:-1}" == "1" ]]; then
-  "${PYTHON_BIN}" "${APP_ROOT}/scripts/prepare_models.py" --config "${RUNTIME_CONFIG}"
-else
-  echo "[wan-dance] Skipping model downloads (DOWNLOAD_MODELS=${DOWNLOAD_MODELS:-0})."
+prepare_args=("--config" "${RUNTIME_CONFIG}")
+if [[ "${DOWNLOAD_MODELS:-1}" != "1" ]]; then
+  prepare_args+=("--skip-download")
+  echo "[wan-dance] Skipping SCAIL-2 model downloads (DOWNLOAD_MODELS=${DOWNLOAD_MODELS:-0})."
+fi
+if [[ "${DOWNLOAD_SAM3:-0}" == "1" ]]; then
+  prepare_args+=("--download-sam3")
 fi
 
-if [[ "${DOWNLOAD_SAM3:-0}" == "1" ]]; then
-  "${PYTHON_BIN}" "${APP_ROOT}/scripts/prepare_models.py" --config "${RUNTIME_CONFIG}" --skip-download --download-sam3
+if [[ "${DOWNLOAD_MODELS:-1}" == "1" || "${DOWNLOAD_SAM3:-0}" == "1" ]]; then
+  if [[ "${PREPARE_MODELS_BACKGROUND:-1}" == "1" ]]; then
+    echo "[wan-dance] Preparing models in the background; UI will start immediately."
+    "${PYTHON_BIN}" "${APP_ROOT}/scripts/prepare_models.py" "${prepare_args[@]}" &
+  else
+    "${PYTHON_BIN}" "${APP_ROOT}/scripts/prepare_models.py" "${prepare_args[@]}"
+  fi
 fi
 
 if [[ "${START_GRADIO:-1}" == "1" ]]; then
