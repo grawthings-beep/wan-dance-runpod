@@ -23,6 +23,10 @@ directly instead of the older ComfyUI SCAIL-Preview pose workflow.
 - First use downloads roughly 45 GB. The image uses the already converted
   `Comfy-Org/SCAIL-2` fp16 safetensors file, so there is no startup-time
   checkpoint conversion.
+- The image patches SCAIL-2 attention to fall back to PyTorch SDPA when
+  external `flash-attn` wheels are unavailable. This avoids a hard
+  `FLASH_ATTN_2_AVAILABLE` assertion on Blackwell/CUDA 12.8 pods, though
+  native flash-attn can still be faster when present.
 
 ## Quick Start
 

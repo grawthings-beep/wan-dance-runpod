@@ -39,6 +39,11 @@ Open the Pod HTTP endpoint on port `8188`.
 For a first test, use 512 x 896 or 896 x 512 and keep the driving video short.
 The default SCAIL-2 segment length is 81 frames at 16 fps.
 
+The container applies a build-time SCAIL-2 attention patch so generation can
+fall back to PyTorch SDPA when `flash-attn` is not available. If you still hit
+memory errors, reduce sampling steps or segment length before increasing video
+duration.
+
 ## 5. Persistent files
 
 ```text

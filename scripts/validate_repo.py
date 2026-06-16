@@ -19,6 +19,7 @@ def main():
         ROOT / "Dockerfile",
         ROOT / "scripts" / "start.sh",
         ROOT / "scripts" / "prepare_models.py",
+        ROOT / "scripts" / "patch_scail2_attention.py",
         ROOT / "scripts" / "run_scail2.py",
         ROOT / "scripts" / "app.py",
         ROOT / "README.md",
@@ -37,6 +38,7 @@ def main():
     require(re.fullmatch(r"[0-9a-f]{40}", scail["scail_weights_revision"]) is not None, "Bad SCAIL-2 weights revision")
     require(scail["code_commit"] in dockerfile, "Dockerfile is missing pinned SCAIL-2 commit")
     require(scail["pose_commit"] in dockerfile, "Dockerfile is missing pinned SCAIL-Pose commit")
+    require("patch_scail2_attention.py" in dockerfile, "Dockerfile must patch SCAIL-2 attention fallback")
     require(len(scail["required_files"]) >= 7, "Expected official SCAIL-2 support files")
     require("model/1/fsdp2_rank_0000_checkpoint.pt" not in json.dumps(scail), "FSDP checkpoint should not be downloaded")
     require(scail["scail_path"].endswith("wan2.1_14B_SCAIL_2_fp16.safetensors"), "Expected direct fp16 safetensors")
@@ -49,11 +51,15 @@ def main():
     require(sam3.get("gated") is True, "SAM3 gated status must be documented")
 
     requirements = (ROOT / "requirements-runtime.txt").read_text(encoding="utf-8")
-    require("flash_attn" not in requirements, "flash_attn should remain optional")
+    require("flash_attn" not in requirements, "flash_attn should remain optional; use the SDPA fallback patch")
     require("torch" not in requirements, "base image should provide torch")
     require("ultralytics==8.4.68" in requirements, "SAM3-capable ultralytics must be pinned")
 
-    for script in ["prepare_models.py", "run_scail2.py", "app.py", "validate_repo.py"]:
+    patch_script = (ROOT / "scripts" / "patch_scail2_attention.py").read_text(encoding="utf-8")
+    require("SCAIL2_RUNPOD_SDPA_FALLBACK" in patch_script, "Attention fallback patch marker is missing")
+    require("scaled_dot_product_attention" in patch_script, "Attention fallback patch must use torch SDPA")
+
+    for script in ["prepare_models.py", "patch_scail2_attention.py", "run_scail2.py", "app.py", "validate_repo.py"]:
         py_compile.compile(str(ROOT / "scripts" / script), doraise=True)
 
     all_text = "\n".join(
