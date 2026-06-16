@@ -2,12 +2,11 @@
 import json
 from pathlib import Path
 import re
+import py_compile
 
 
 ROOT = Path(__file__).resolve().parents[1]
-WORKFLOW = ROOT / "workflows" / "wan21_scail_pose_dance.json"
-MANIFEST = ROOT / "config" / "scail-models.json"
-NODES = ROOT / "config" / "custom-nodes.json"
+RUNTIME = ROOT / "config" / "scail2-runtime.json"
 
 
 def require(condition, message):
@@ -19,67 +18,64 @@ def main():
     required_files = [
         ROOT / "Dockerfile",
         ROOT / "scripts" / "start.sh",
-        ROOT / "scripts" / "download_models.py",
+        ROOT / "scripts" / "prepare_models.py",
+        ROOT / "scripts" / "run_scail2.py",
+        ROOT / "scripts" / "app.py",
         ROOT / "README.md",
         ROOT / "RUNPOD_STEPS.md",
-        WORKFLOW,
-        MANIFEST,
-        NODES,
+        RUNTIME,
     ]
     for path in required_files:
         require(path.is_file(), f"Missing required file: {path.relative_to(ROOT)}")
 
-    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
-    require(len(manifest.get("models", [])) == 8, "Expected exactly 8 managed model files")
-    paths = set()
-    for model in manifest["models"]:
-        require(model["url"].startswith("https://"), f"Non-HTTPS URL: {model['name']}")
-        require(model["path"].startswith("models/"), f"Model path must be under models/: {model['name']}")
-        require(model["path"] not in paths, f"Duplicate model path: {model['path']}")
-        require(int(model.get("min_bytes", 0)) > 0, f"Missing min_bytes: {model['name']}")
-        paths.add(model["path"])
-
-    node_config = json.loads(NODES.read_text(encoding="utf-8"))
-    require(len(node_config.get("nodes", [])) == 5, "Expected exactly 5 pinned custom nodes")
     dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
-    for node in node_config["nodes"]:
-        require(re.fullmatch(r"[0-9a-f]{40}", node["commit"]) is not None, f"Bad commit: {node['name']}")
-        require(node["repository"] in dockerfile, f"Dockerfile is missing {node['repository']}")
-        require(node["commit"] in dockerfile, f"Dockerfile is missing commit for {node['name']}")
+    runtime = json.loads(RUNTIME.read_text(encoding="utf-8"))
+    scail = runtime["scail2"]
+    require(re.fullmatch(r"[0-9a-f]{40}", scail["code_commit"]) is not None, "Bad SCAIL-2 code commit")
+    require(re.fullmatch(r"[0-9a-f]{40}", scail["pose_commit"]) is not None, "Bad SCAIL-Pose commit")
+    require(re.fullmatch(r"[0-9a-f]{40}", scail["model_revision"]) is not None, "Bad SCAIL-2 model revision")
+    require(scail["code_commit"] in dockerfile, "Dockerfile is missing pinned SCAIL-2 commit")
+    require(scail["pose_commit"] in dockerfile, "Dockerfile is missing pinned SCAIL-Pose commit")
+    require(len(scail["required_files"]) >= 8, "Expected official SCAIL-2 files")
+    for item in scail["required_files"]:
+        require(int(item["min_bytes"]) > 0, f"Missing min_bytes: {item['path']}")
 
-    workflow = json.loads(WORKFLOW.read_text(encoding="utf-8"))
-    node_types = {node.get("type") for node in workflow.get("nodes", [])}
-    required_types = {
-        "WanVideoModelLoader",
-        "WanVideoSamplerv2",
+    sam3 = runtime["sam3"]
+    require(sam3["model_repository"] == "facebook/sam3", "SAM3 repo changed unexpectedly")
+    require(sam3.get("gated") is True, "SAM3 gated status must be documented")
+
+    requirements = (ROOT / "requirements-runtime.txt").read_text(encoding="utf-8")
+    require("flash_attn" not in requirements, "flash_attn should remain optional")
+    require("torch" not in requirements, "base image should provide torch")
+    require("ultralytics==8.4.68" in requirements, "SAM3-capable ultralytics must be pinned")
+
+    for script in ["prepare_models.py", "run_scail2.py", "app.py", "validate_repo.py"]:
+        py_compile.compile(str(ROOT / "scripts" / script), doraise=True)
+
+    all_text = "\n".join(
+        path.read_text(encoding="utf-8", errors="ignore")
+        for path in ROOT.rglob("*")
+        if path.is_file()
+        and path.suffix in {".md", ".py", ".json", ".txt", ".sh", ".env", ".example", ""}
+        and ".git" not in path.parts
+        and "__pycache__" not in path.parts
+        and path.relative_to(ROOT) != Path("scripts/validate_repo.py")
+    )
+    forbidden = [
+        "Wan21-14B-SCAIL-preview",
         "RenderNLFPoses",
         "PoseDetectionVitPoseToDWPose",
-        "OnnxDetectionModelLoader",
-        "VHS_LoadVideo",
-        "VHS_VideoCombine",
-    }
-    require(required_types <= node_types, f"Workflow is missing node types: {sorted(required_types - node_types)}")
-
-    workflow_text = json.dumps(workflow, ensure_ascii=False)
-    required_names = [
-        "Wan21-14B-SCAIL-preview_fp8_e4m3fn_scaled_KJ.safetensors",
-        "Wan2_1_VAE_bf16.safetensors",
-        "umt5-xxl-enc-bf16.safetensors",
-        "lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors",
-        "clip_vision_h.safetensors",
-        "vitpose-l-wholebody.onnx",
-        "yolov10m.onnx",
+        "ComfyUI-WanVideoWrapper",
+        "wan21_scail_pose_dance",
     ]
-    for name in required_names:
-        require(name in workflow_text, f"Workflow does not reference {name}")
-    require("N:\\\\" not in workflow_text, "Workflow contains a local Windows path")
+    for token in forbidden:
+        require(token not in all_text, f"Old SCAIL-Preview/ComfyUI token remains: {token}")
 
     print("Repository validation passed.")
-    print(f"Models managed: {len(manifest['models'])}")
-    print(f"Pinned custom nodes: {len(node_config['nodes'])}")
-    print(f"Workflow nodes: {len(workflow['nodes'])}")
+    print(f"SCAIL-2 code: {scail['code_commit']}")
+    print(f"SCAIL-2 model revision: {scail['model_revision']}")
+    print(f"SAM3 auto-mask: optional gated model")
 
 
 if __name__ == "__main__":
     main()
-

@@ -13,44 +13,37 @@ Make the GHCR package public, or configure RunPod registry credentials.
 ## 2. Create the Pod
 
 - Container image: the GHCR image above
-- Container disk: 20 GB or more
-- Network volume: 80 GB recommended
+- Container disk: 30 GB or more
+- Network volume: 120 GB recommended
 - Volume mount path: `/workspace`
 - Expose HTTP port: `8188`
-- GPU: 48 GB recommended; 24 GB is the practical lower bound
+- GPU: 48 GB recommended
 
 Copy the values from `runpod-template.env.example` into the template variables.
 
 ## 3. First start
 
-The first start downloads roughly 35-40 GB. Watch the Pod logs for `DOWNLOAD`
-and `SKIP existing` messages. ComfyUI starts only after required files pass
-size or checksum validation.
+The first start downloads the official SCAIL-2 checkpoint and converts it to
+`/workspace/scail2/models/SCAIL-2.safetensors`. This is large and can take a
+while. Watch `/workspace/logs/wan-dance-startup.log`.
 
-## 4. Use the workflow
+Set `DOWNLOAD_SAM3=1` only if the `HF_TOKEN` account has access to
+`facebook/sam3`. Without SAM3, the UI still works in manual-mask mode.
 
-Open ComfyUI and select:
+## 4. Use the UI
 
-```text
-Workflows > Browse > wan21_scail_pose_dance
-```
+Open the Pod HTTP endpoint on port `8188`.
 
-Change these three inputs:
-
-1. `LoadImage`: the character or subject reference
-2. `VHS_LoadVideo`: the dance/motion reference
-3. `WanVideoTextEncodeCached`: positive and negative prompts
-
-For a first test, use 33-49 frames and 448 x 768. Increase frame count and
-resolution after the workflow succeeds.
+For a first test, use 512 x 896 or 896 x 512 and keep the driving video short.
+The default SCAIL-2 segment length is 81 frames at 16 fps.
 
 ## 5. Persistent files
 
 ```text
-/workspace/comfyui/models
-/workspace/comfyui/input
-/workspace/comfyui/output
-/workspace/comfyui/user/default/workflows
+/workspace/scail2/models
+/workspace/scail2/input
+/workspace/scail2/output
+/workspace/scail2/jobs
 /workspace/logs/wan-dance-startup.log
 ```
 

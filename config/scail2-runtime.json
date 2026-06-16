@@ -1,0 +1,66 @@
+{
+  "scail2": {
+    "code_repository": "https://github.com/zai-org/SCAIL-2",
+    "code_branch": "wan-scail2",
+    "code_commit": "f998bcc29127ae9b177711ee8f39d65ccd73cca1",
+    "pose_repository": "https://github.com/zai-org/SCAIL-Pose",
+    "pose_commit": "519c7f54cb972e7f92684213b7ef6c3e05a8f3b2",
+    "model_repository": "zai-org/SCAIL-2",
+    "model_revision": "dbb6477f5a6d1b65bd1a1ac4df4e46bd3f2b5658",
+    "checkpoint_dir": "/workspace/scail2/models/SCAIL-2",
+    "converted_path": "/workspace/scail2/models/SCAIL-2.safetensors",
+    "converted_min_bytes": 25000000000,
+    "allow_patterns": [
+      "Wan2.1_VAE.pth",
+      "models_clip_open-clip-xlm-roberta-large-vit-huge-14-onlyvisual.pth",
+      "model/1/fsdp2_rank_0000_checkpoint.pt",
+      "umt5-xxl/*",
+      "README.md"
+    ],
+    "required_files": [
+      {
+        "path": "Wan2.1_VAE.pth",
+        "min_bytes": 100000000
+      },
+      {
+        "path": "models_clip_open-clip-xlm-roberta-large-vit-huge-14-onlyvisual.pth",
+        "min_bytes": 1000000000
+      },
+      {
+        "path": "model/1/fsdp2_rank_0000_checkpoint.pt",
+        "min_bytes": 25000000000
+      },
+      {
+        "path": "umt5-xxl/models_t5_umt5-xxl-enc-bf16.pth",
+        "min_bytes": 5000000000
+      },
+      {
+        "path": "umt5-xxl/spiece.model",
+        "min_bytes": 100000
+      },
+      {
+        "path": "umt5-xxl/tokenizer.json",
+        "min_bytes": 1000000
+      },
+      {
+        "path": "umt5-xxl/tokenizer_config.json",
+        "min_bytes": 100
+      },
+      {
+        "path": "umt5-xxl/special_tokens_map.json",
+        "min_bytes": 100
+      }
+    ]
+  },
+  "sam3": {
+    "model_repository": "facebook/sam3",
+    "model_revision": "main",
+    "allow_patterns": [
+      "sam3.pt"
+    ],
+    "checkpoint_dir": "/workspace/scail2/models/sam3",
+    "model_path": "/workspace/scail2/models/sam3/sam3.pt",
+    "min_bytes": 1000000000,
+    "gated": true
+  }
+}

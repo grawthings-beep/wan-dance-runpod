@@ -1,24 +1,27 @@
-# Wan SCAIL Dance on RunPod
+# SCAIL-2 Wan Dance on RunPod
 
-RunPod-ready ComfyUI image for reference-driven dance video generation with:
+RunPod-ready image for SCAIL-2 end-to-end character animation and replacement.
 
-- Wan 2.1 SCAIL 14B FP8 scaled
-- SCAIL-Pose / NLF 3D pose extraction
-- ViTPose + YOLO whole-body pose preprocessing
-- Lightx2v step-distillation LoRA
-- A bundled ComfyUI workflow
+This repo now uses the official `zai-org/SCAIL-2` `wan-scail2` inference code
+directly instead of the older ComfyUI SCAIL-Preview pose workflow.
 
-The image pins all required custom nodes. Model files are downloaded once to the
-RunPod network volume and reused on later starts.
+## What Changed
+
+- SCAIL-2 14B, based on Wan2.1 I2V 14B.
+- No skeleton render is required for normal animation. The driving video itself
+  is passed to SCAIL-2.
+- Masks are still required by the model. Auto-mask uses SCAIL-Pose in
+  `--e2e_mode`, which skips NLF/DWPose skeleton extraction and uses SAM3 masks.
+- ComfyUI custom nodes and workflow JSON were removed. The container exposes a
+  small Gradio UI and a CLI wrapper.
 
 ## Hardware
 
-- Recommended GPU: 48 GB VRAM
-- Practical minimum: 24 GB VRAM with block swapping and at least 64 GB system RAM
-- Network volume: 50 GB minimum, 80 GB recommended
-
-The included workflow targets 512 x 896, 81 input frames sampled every second
-frame, and 6 sampling steps. Start lower while testing.
+- Recommended GPU: 48 GB VRAM or more.
+- 24 GB may be tight and should be treated as experimental.
+- Network volume: 90 GB minimum, 120 GB recommended.
+- First start downloads roughly 45 GB and converts the FSDP checkpoint to a
+  safetensors file of roughly 30 GB.
 
 ## Quick Start
 
@@ -26,35 +29,65 @@ frame, and 6 sampling steps. Start lower while testing.
 2. Create a RunPod Pod from `ghcr.io/YOUR_GITHUB_NAME/wan-dance-runpod:latest`.
 3. Attach a network volume at `/workspace`.
 4. Expose HTTP port `8188`.
-5. Wait for the first model download to finish.
-6. Open ComfyUI and load `wan21_scail_pose_dance`.
-7. Select a reference character image in `LoadImage`.
-8. Select a dance video in `VHS_LoadVideo`.
-9. Edit the positive and negative prompts, then queue the workflow.
+5. Set `HF_TOKEN` to a Hugging Face token.
+6. Wait for the first model download and conversion to finish.
+7. Open the Gradio UI on port `8188`.
+8. Upload a reference image and a driving video.
+9. Enable auto-mask if your token has access to `facebook/sam3`, or upload
+   prepared SCAIL-2 mask files manually.
 
-Outputs are saved under `/workspace/comfyui/output`.
-Startup, download, and ComfyUI logs are appended to
-`/workspace/logs/wan-dance-startup.log`.
+Outputs are saved under `/workspace/scail2/output`.
+Logs are appended to `/workspace/logs/wan-dance-startup.log`.
+
+## Masks
+
+SCAIL-2 is end-to-end with respect to motion: `--pose` can be the original
+driving video. It is not mask-free.
+
+For best quality, use SAM3 auto-mask:
+
+```bash
+python /opt/wan-dance/scripts/run_scail2.py \
+  --auto-mask \
+  --mode animation \
+  --image /workspace/scail2/input/ref.png \
+  --driving-video /workspace/scail2/input/driving.mp4 \
+  --prompt "A character is dancing with natural full-body motion." \
+  --output /workspace/scail2/output/out.mp4
+```
+
+Manual masks also work:
+
+```bash
+python /opt/wan-dance/scripts/run_scail2.py \
+  --mode animation \
+  --image ref.png \
+  --mask-image ref_mask.jpg \
+  --driving-video driving.mp4 \
+  --mask-video rendered_mask_v2.mp4 \
+  --prompt "The character is dancing." \
+  --output out.mp4
+```
+
+For replacement, add `--mode replacement`; with auto-mask, add `--matchnearest`
+when the driving video contains more than one actor and the nearest matching
+track should be selected.
 
 ## Environment
 
-See `runpod-template.env.example`. `HF_TOKEN` is optional for public files but
-recommended to reduce Hugging Face rate-limit failures.
+See `runpod-template.env.example`.
 
-Set `DOWNLOAD_MODELS=0` only after all model files are already present.
-Set `FORCE_PINNED_NODES=0` if you intentionally want to manage the five custom
-node folders yourself.
-
-## Managed Models
-
-The model manifest is `config/scail-models.json`. You can replace URLs or add
-files without rebuilding the downloader.
+- `DOWNLOAD_MODELS=1` downloads SCAIL-2 and converts it at startup.
+- `DOWNLOAD_SAM3=1` also downloads `facebook/sam3` for auto-mask. This model is
+  gated, so the `HF_TOKEN` account must have accepted the license.
+- `START_GRADIO=1` starts the web UI on `PORT`, default `8188`.
+- `DOWNLOAD_MODELS=0` is useful after the network volume is already prepared.
 
 ## Sources
 
-- SCAIL: https://github.com/zai-org/SCAIL
-- SCAIL model: https://huggingface.co/zai-org/SCAIL-Preview
-- WanVideoWrapper: https://github.com/kijai/ComfyUI-WanVideoWrapper
-- SCAIL-Pose: https://github.com/kijai/ComfyUI-SCAIL-Pose
+- SCAIL-2 code: https://github.com/zai-org/SCAIL-2
+- SCAIL-2 model: https://huggingface.co/zai-org/SCAIL-2
+- SCAIL-2 project page: https://teal024.github.io/SCAIL-2/
+- SCAIL-Pose masks: https://github.com/zai-org/SCAIL-Pose
 
 See `THIRD_PARTY.md` for component and model licensing notes.
