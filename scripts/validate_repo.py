@@ -107,6 +107,10 @@ def main():
     require("link_or_copy" in prepare_script, "Model preparation must link ComfyUI model files")
     require("START_COMFYUI" in start_script, "Startup must default to ComfyUI")
     require("scail2-comfyui-infinity-runpod.json" in start_script, "Startup must copy the bundled workflow")
+    require("--enable-cors-header" in start_script, "ComfyUI must allow RunPod proxy origins")
+    require("--user-directory" in start_script, "ComfyUI must use the persistent workspace user directory")
+    env_template = (ROOT / "runpod-template.env.example").read_text(encoding="utf-8")
+    require("COMFYUI_CORS_ORIGIN=*" in env_template, "RunPod template must expose proxy-friendly ComfyUI CORS")
 
     model_loading_patch = (ROOT / "scripts" / "patch_scail2_model_loading.py").read_text(encoding="utf-8")
     require("SCAIL2_RUNPOD_GPU_AWARE_FP8_V2_MODEL_LOADING" in model_loading_patch, "GPU-aware fp8 loading patch marker is missing")

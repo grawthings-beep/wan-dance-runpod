@@ -77,7 +77,7 @@ segment length, and CPU/GPU offload.
 2. Create a RunPod Pod from `ghcr.io/YOUR_GITHUB_NAME/wan-dance-runpod:latest`.
 3. Attach a network volume at `/workspace`.
 4. Expose HTTP port `8188`.
-5. Set `HF_TOKEN` to a Hugging Face token.
+5. Set `HF_TOKEN` from a RunPod Secret, not as a pasted plain-text value.
 6. Open ComfyUI on port `8188`.
 7. In ComfyUI, open `scail2-comfyui-infinity-runpod.json`.
 8. Upload or place `reference.png` and `driving.mp4` in
@@ -99,6 +99,7 @@ tracks the reference and driving person with SAM3.1, then uses
 See `runpod-template.env.example`.
 
 - `START_COMFYUI=1` starts ComfyUI on `PORT`, default `8188`.
+- `COMFYUI_CORS_ORIGIN=*` starts ComfyUI with proxy-friendly CORS headers.
 - `DOWNLOAD_MODELS=1` downloads ComfyUI SCAIL-2/Wan/SAM3.1 model files.
 - `REFRESH_RUNTIME_CONFIG=1` refreshes `/workspace/config/scail2-runtime.json`
   from the image on startup. Keep this on when changing model defaults.
@@ -114,6 +115,21 @@ See `runpod-template.env.example`.
 - `START_COMFYUI=0 START_GRADIO=1` starts the old direct Gradio wrapper for
   debugging only.
 - `DOWNLOAD_MODELS=0` is useful after the network volume is already prepared.
+
+## RunPod Proxy Check
+
+If the browser shows HTTP 403 but the Pod terminal returns HTML from
+`curl -i http://127.0.0.1:8188/`, ComfyUI is running and the issue is outside
+the model path. Check that the Pod or template exposes `8188` under
+`Expose HTTP Ports`, then open the RunPod HTTP service URL for port `8188`:
+
+```text
+https://POD_ID-8188.proxy.runpod.net
+```
+
+The startup command should include `--listen 0.0.0.0 --port 8188` and
+`--enable-cors-header`. If the Pod was created before this change, rebuild the
+image and recreate the Pod from the updated template.
 
 ## Sources
 

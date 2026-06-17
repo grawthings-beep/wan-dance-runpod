@@ -96,6 +96,8 @@ if [[ "${START_COMFYUI:-1}" == "1" ]]; then
   exec "${PYTHON_BIN}" "${COMFYUI_ROOT}/main.py" \
     --listen "${HOST:-0.0.0.0}" \
     --port "${PORT:-8188}" \
+    --enable-cors-header "${COMFYUI_CORS_ORIGIN:-*}" \
+    --user-directory "${COMFYUI_WORKSPACE_ROOT}/user" \
     --input-directory "${COMFYUI_INPUT_DIR}" \
     --output-directory "${COMFYUI_OUTPUT_DIR}" \
     ${COMFYUI_ARGS:-}
