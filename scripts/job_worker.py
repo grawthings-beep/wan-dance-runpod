@@ -44,7 +44,12 @@ def run_job(job_dir):
     log_path = Path(payload["log"])
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
-    update_status(status_path, status="running", started_at=utc_now())
+    update_status(
+        status_path,
+        status="running",
+        message="Generation process is running.",
+        started_at=utc_now(),
+    )
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
     env.update(payload.get("env", {}))
@@ -65,9 +70,11 @@ def run_job(job_dir):
     output = payload.get("output")
     output_exists = bool(output and Path(output).is_file())
     status = "succeeded" if process.returncode == 0 and output_exists else "failed"
+    message = "Output video is ready." if status == "succeeded" else "Generation failed. See generation.log."
     update_status(
         status_path,
         status=status,
+        message=message,
         finished_at=utc_now(),
         returncode=process.returncode,
         output_exists=output_exists,
@@ -94,6 +101,7 @@ def main():
             update_status(
                 status_path,
                 status="failed",
+                message="Worker crashed before generation completed.",
                 finished_at=utc_now(),
                 returncode=-1,
                 error=message[-4000:],

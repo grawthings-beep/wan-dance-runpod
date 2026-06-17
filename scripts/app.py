@@ -134,7 +134,10 @@ def build_status_text(status):
     lines = [
         f"Job: {status.get('job_id', '')}",
         f"Status: {status.get('status', 'unknown')}",
+        f"Refreshed: {utc_now()}",
     ]
+    if status.get("message"):
+        lines.append(f"Message: {status['message']}")
     if status.get("created_at"):
         lines.append(f"Created: {status['created_at']}")
     if status.get("started_at"):
@@ -148,6 +151,23 @@ def build_status_text(status):
     if status.get("log"):
         lines.append(f"Log: {status['log']}")
     return "\n".join(lines)
+
+
+def build_status_banner(status):
+    if not status:
+        return "### No job selected\nSubmit a job or load one from Recent jobs."
+
+    state = status.get("status", "unknown")
+    job_id = status.get("job_id", "")
+    if state == "queued":
+        return f"### QUEUED\nJob `{job_id}` is waiting for the worker to start."
+    if state == "running":
+        return f"### RUNNING\nJob `{job_id}` is still generating. This page can be refreshed safely."
+    if state == "succeeded":
+        return f"### COMPLETE\nJob `{job_id}` finished. The video is ready below."
+    if state == "failed":
+        return f"### FAILED\nJob `{job_id}` failed. Check the log tail below for the error."
+    return f"### {state.upper()}\nJob `{job_id}` status was refreshed."
 
 
 def read_log_tail(log_path, max_bytes=20000):
@@ -315,6 +335,7 @@ def submit_job(
     status = {
         "job_id": job_id,
         "status": "queued",
+        "message": "Waiting for the detached worker to start.",
         "created_at": utc_now(),
         "output": str(output),
         "log": str(log_path),
@@ -361,7 +382,9 @@ def submit_job(
 
     return (
         job_id,
+        build_status_banner(status),
         build_status_text(status),
+        None,
         None,
         f"Job started. Refresh this job ID to follow progress:\n{job_id}",
         refresh_recent_jobs(job_id),
@@ -371,15 +394,22 @@ def submit_job(
 def refresh_job(job_id):
     status = load_job_status(job_id)
     if not status:
-        return "No job selected.", None, ""
+        return build_status_banner(None), "No job selected.", None, None, ""
     output = status.get("output")
     output_video = output if output and Path(output).is_file() else None
-    return build_status_text(status), output_video, read_log_tail(status.get("log"))
+    output_file = output_video
+    return (
+        build_status_banner(status),
+        build_status_text(status),
+        output_video,
+        output_file,
+        read_log_tail(status.get("log")),
+    )
 
 
 def load_selected_job(selected_job):
-    status, output, log_tail = refresh_job(selected_job)
-    return selected_job or "", status, output, log_tail
+    banner, status, output_video, output_file, log_tail = refresh_job(selected_job)
+    return selected_job or "", banner, status, output_video, output_file, log_tail
 
 
 with gr.Blocks(title="SCAIL-2 Wan Dance") as demo:
@@ -429,8 +459,10 @@ with gr.Blocks(title="SCAIL-2 Wan Dance") as demo:
         refresh_button = gr.Button("Refresh")
         load_button = gr.Button("Load selected job")
         refresh_jobs_button = gr.Button("Refresh job list")
+    status_banner = gr.Markdown(value=build_status_banner(None))
     status = gr.Textbox(label="Status", lines=8)
     output_video = gr.Video(label="Output")
+    output_file = gr.File(label="Download output")
     log = gr.Textbox(label="Log tail", lines=12)
 
     speed_preset.change(
@@ -472,17 +504,17 @@ with gr.Blocks(title="SCAIL-2 Wan Dance") as demo:
             lightx2v_lora,
             lora_alpha,
         ],
-        outputs=[job_id, status, output_video, log, recent_jobs],
+        outputs=[job_id, status_banner, status, output_video, output_file, log, recent_jobs],
     )
     refresh_button.click(
         refresh_job,
         inputs=[job_id],
-        outputs=[status, output_video, log],
+        outputs=[status_banner, status, output_video, output_file, log],
     )
     load_button.click(
         load_selected_job,
         inputs=[recent_jobs],
-        outputs=[job_id, status, output_video, log],
+        outputs=[job_id, status_banner, status, output_video, output_file, log],
     )
     refresh_jobs_button.click(
         refresh_recent_jobs,
@@ -493,7 +525,7 @@ with gr.Blocks(title="SCAIL-2 Wan Dance") as demo:
     timer.tick(
         refresh_job,
         inputs=[job_id],
-        outputs=[status, output_video, log],
+        outputs=[status_banner, status, output_video, output_file, log],
         show_progress=False,
     )
 

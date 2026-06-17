@@ -41,6 +41,8 @@ directly instead of the older ComfyUI SCAIL-Preview pose workflow.
   full generation inside the browser request.
 - You can leave or refresh the page while a job is running. Reopen the UI, load
   the job from Recent jobs, or paste the Job ID to view status, logs, and output.
+- The UI shows QUEUED, RUNNING, COMPLETE, or FAILED above the raw status text.
+- Completed jobs expose both a video preview and a Download output file link.
 - Job metadata and logs are stored under `/workspace/scail2/jobs/<job_id>/`.
 - Finished videos are saved under `/workspace/scail2/output/`.
 
