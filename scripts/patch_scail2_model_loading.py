@@ -3,8 +3,11 @@ import sys
 from pathlib import Path
 
 
-PATCH_MARKER = "SCAIL2_RUNPOD_GPU_AWARE_FP8_MODEL_LOADING"
-OLD_PATCH_MARKER = "SCAIL2_RUNPOD_GPU_AWARE_MODEL_LOADING"
+PATCH_MARKER = "SCAIL2_RUNPOD_GPU_AWARE_FP8_V2_MODEL_LOADING"
+OLD_PATCH_MARKERS = (
+    "SCAIL2_RUNPOD_GPU_AWARE_MODEL_LOADING",
+    "SCAIL2_RUNPOD_GPU_AWARE_FP8_MODEL_LOADING",
+)
 
 
 IMPORT_TARGET = "from safetensors.torch import load_file\n"
@@ -53,6 +56,9 @@ def _load_safetensors_into_model(model, filename):
         }
 
         for key in keys:
+            if key == "scaled_fp8":
+                continue
+
             if key.endswith(".scale_weight"):
                 base_key = key[:-len(".scale_weight")] + ".weight"
                 if base_key in model_state:
@@ -126,7 +132,7 @@ LOAD_TARGET = '''        logging.info(f"Creating WanSCAILModel from {scail_safet
 '''
 
 LOAD_REPLACEMENT = '''        logging.info(f"Creating WanSCAILModel from {scail_safetensors_path}")
-        # SCAIL2_RUNPOD_GPU_AWARE_FP8_MODEL_LOADING:
+        # SCAIL2_RUNPOD_GPU_AWARE_FP8_V2_MODEL_LOADING:
         # Build the model directly in the configured inference dtype, then stream
         # safetensors into it one tensor at a time. When CPU offload is disabled,
         # load directly onto the GPU to avoid keeping the 14B transformer in
@@ -156,7 +162,9 @@ LOAD_BLOCK_END = '''        if self.lora_path is not None:
 
 
 def replace_existing_helper(text):
-    start = text.find("def _load_safetensors_into_model(model, filename):\n")
+    start = text.find("def _scale_tensor_for_target(tensor, scale, target, key):\n")
+    if start == -1:
+        start = text.find("def _load_safetensors_into_model(model, filename):\n")
     if start == -1:
         raise RuntimeError("Unexpected patched scail.py contents; missing helper start.")
     end = text.find(HELPER_TARGET, start)
@@ -190,7 +198,7 @@ def main():
                 raise RuntimeError(f"Unexpected scail.py contents; missing patch target: {IMPORT_TARGET!r}")
             patched = patched.replace(IMPORT_TARGET, IMPORT_REPLACEMENT, 1)
 
-        if OLD_PATCH_MARKER in patched:
+        if any(marker in patched for marker in OLD_PATCH_MARKERS):
             patched = replace_existing_helper(patched)
         else:
             if HELPER_TARGET not in patched:
