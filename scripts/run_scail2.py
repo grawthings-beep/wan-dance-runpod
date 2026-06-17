@@ -21,13 +21,20 @@ DEFAULT_SAFETENSORS = Path(
         str(WORKSPACE_DIR / "models" / "Comfy-Org-SCAIL-2" / "diffusion_models" / "wan2.1_14B_SCAIL_2_fp8_scaled.safetensors"),
     )
 )
-DEFAULT_FAST_LORA = Path(
+DEFAULT_SAM3 = Path(os.environ.get("SAM3_MODEL", str(WORKSPACE_DIR / "models" / "sam3" / "sam3.pt")))
+DEFAULT_LIGHTX2V_LORA = Path(
     os.environ.get(
-        "FAST_LORA_PATH",
-        str(WORKSPACE_DIR / "models" / "LightX2V-Wan2.1-I2V-14B" / "loras" / "Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors"),
+        "LIGHTX2V_LORA_PATH",
+        str(
+            WORKSPACE_DIR
+            / "models"
+            / "lightx2v"
+            / "Wan2.1-I2V-14B-480P-StepDistill-CfgDistill-Lightx2v"
+            / "loras"
+            / "Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors"
+        ),
     )
 )
-DEFAULT_SAM3 = Path(os.environ.get("SAM3_MODEL", str(WORKSPACE_DIR / "models" / "sam3" / "sam3.pt")))
 
 
 def env_bool(name, default):
@@ -71,10 +78,10 @@ def ensure_models(args):
         "--config",
         str(RUNTIME_CONFIG),
     ]
-    if args.fast_lora and not args.lora_path:
-        command.append("--download-fast-lora")
     if args.auto_mask:
         command.append("--download-sam3")
+    if args.lightx2v_lora:
+        command.append("--download-lightx2v-lora")
     run(command, cwd=APP_ROOT)
 
 
@@ -143,11 +150,13 @@ def prepare_manual_inputs(args):
 def generate(args, inputs, output_file):
     require_path(DEFAULT_CKPT_DIR / "Wan2.1_VAE.pth", "SCAIL-2 checkpoint directory")
     require_path(DEFAULT_SAFETENSORS, "SCAIL-2 safetensors")
-    lora_path = Path(args.lora_path) if args.lora_path else (Path(args.fast_lora_path or DEFAULT_FAST_LORA) if args.fast_lora else None)
-    if lora_path is not None:
-        require_path(lora_path, "LightX2V fast LoRA")
     for label, path in inputs.items():
         require_path(path, label)
+    lora_path = args.lora_path
+    if args.lightx2v_lora and not lora_path:
+        lora_path = str(DEFAULT_LIGHTX2V_LORA)
+    if lora_path:
+        require_path(lora_path, "LoRA")
 
     command = [
         sys.executable,
@@ -195,8 +204,8 @@ def generate(args, inputs, output_file):
     ]
     if args.mode == "replacement":
         command.append("--replace_flag")
-    if lora_path is not None:
-        command.extend(["--lora_path", str(lora_path), "--lora_alpha", str(args.lora_alpha)])
+    if lora_path:
+        command.extend(["--lora_path", lora_path, "--lora_alpha", str(args.lora_alpha)])
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
     run(command, cwd=SCAIL2_REPO)
@@ -227,8 +236,7 @@ def parse_args():
     parser.add_argument("--segment-overlap", type=int, default=5)
     parser.add_argument("--seed", type=int, default=-1)
     parser.add_argument("--offload-model", type=lambda value: str(value).lower() in {"1", "true", "yes"}, default=True)
-    parser.add_argument("--fast-lora", action=argparse.BooleanOptionalAction, default=env_bool("FAST_LORA", True))
-    parser.add_argument("--fast-lora-path")
+    parser.add_argument("--lightx2v-lora", action=argparse.BooleanOptionalAction, default=env_bool("LIGHTX2V_LORA", True))
     parser.add_argument("--lora-path")
     parser.add_argument("--lora-alpha", type=float, default=1.0)
     parser.add_argument("--output")

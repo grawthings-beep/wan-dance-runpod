@@ -17,7 +17,8 @@ Make the GHCR package public, or configure RunPod registry credentials.
 - Network volume: 100 GB recommended
 - Volume mount path: `/workspace`
 - Expose HTTP port: `8188`
-- GPU: 48 GB recommended
+- GPU: 48 GB VRAM recommended; 24 GB is experimental, and 80 GB-class GPUs are
+  better when speed matters
 
 Copy the values from `runpod-template.env.example` into the template variables.
 
@@ -25,7 +26,7 @@ Copy the values from `runpod-template.env.example` into the template variables.
 
 The UI starts immediately. In the background, the container downloads the
 official SCAIL-2 support files plus the already-converted Comfy-Org fp8-scaled
-safetensors file and the LightX2V fast LoRA. Watch
+safetensors file and the LightX2V 6-step LoRA. Watch
 `/workspace/logs/wan-dance-startup.log`.
 
 Set `DOWNLOAD_SAM3=1` only if the `HF_TOKEN` account has access to
@@ -48,8 +49,18 @@ for the last short window, and exact output trimming.
 
 The container applies a build-time SCAIL-2 attention patch so generation can
 fall back to PyTorch SDPA when `flash-attn` is not available. If you still hit
-memory errors, reduce sampling steps or segment length before increasing video
-duration.
+memory errors, reduce sampling steps, resolution, or segment length before
+increasing video duration. CPU offload lowers VRAM use but is slower and can
+raise system-RAM use enough to trigger RunPod container OOM. Use it only when
+CUDA VRAM is the limiting factor and the pod has enough system RAM.
+
+If Lightning LoRA does not produce a usable preview on a short clip, avoid
+spending GPU time on longer Balanced or Quality jobs for the same input pair.
+
+Generation runs as a persistent job. The UI returns a Job ID immediately, and
+the actual SCAIL-2 process continues on the server if the browser tab is closed
+or refreshed. Reopen the UI and select the job from Recent jobs, or paste the
+Job ID to check status, logs, and output.
 
 ## 5. Persistent files
 

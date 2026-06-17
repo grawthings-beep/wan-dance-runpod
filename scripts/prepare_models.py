@@ -103,33 +103,6 @@ def ensure_scail2(config, skip_download=False):
     return scail_path
 
 
-def ensure_fast_lora(config, skip_download=False, required=False):
-    fast_lora = config.get("fast_lora")
-    if not fast_lora:
-        if required:
-            raise RuntimeError("fast_lora is not configured")
-        return None
-
-    model_path = expand_path(os.environ.get("FAST_LORA_PATH", fast_lora["model_path"]))
-    if not skip_download and not file_is_large_enough(model_path, fast_lora["min_bytes"]):
-        snapshot_download(
-            os.environ.get("FAST_LORA_REPOSITORY", fast_lora["model_repository"]),
-            os.environ.get("FAST_LORA_REVISION", fast_lora["model_revision"]),
-            expand_path(os.environ.get("FAST_LORA_DIR", fast_lora["checkpoint_dir"])),
-            fast_lora["allow_patterns"],
-        )
-
-    try:
-        require_file(model_path, fast_lora["min_bytes"], "LightX2V fast LoRA")
-        print(f"LightX2V fast LoRA ready: {model_path}", flush=True)
-        return model_path
-    except Exception:
-        if required:
-            raise
-        print(f"WARNING: LightX2V fast LoRA is not ready: {model_path}", file=sys.stderr, flush=True)
-        return None
-
-
 def ensure_sam3(config, required=False):
     sam3 = config["sam3"]
     model_path = expand_path(os.environ.get("SAM3_MODEL", sam3["model_path"]))
@@ -158,14 +131,33 @@ def ensure_sam3(config, required=False):
         return None
 
 
+def ensure_lightx2v_lora(config):
+    lora = config["lightx2v_lora"]
+    lora_path = expand_path(
+        os.environ.get("LIGHTX2V_LORA_PATH", lora["lora_path"])
+    )
+    if file_is_large_enough(lora_path, lora["min_bytes"]):
+        print(f"SKIP Lightx2v LoRA: {lora_path}", flush=True)
+        return lora_path
+
+    snapshot_download(
+        lora["model_repository"],
+        os.environ.get("LIGHTX2V_LORA_REVISION", lora["model_revision"]),
+        expand_path(lora["checkpoint_dir"]),
+        lora["allow_patterns"],
+    )
+    require_file(lora_path, lora["min_bytes"], "Lightx2v LoRA")
+    print(f"Lightx2v LoRA ready: {lora_path}", flush=True)
+    return lora_path
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
     parser.add_argument("--skip-download", action="store_true")
-    parser.add_argument("--download-fast-lora", action="store_true")
-    parser.add_argument("--require-fast-lora", action="store_true")
     parser.add_argument("--download-sam3", action="store_true")
     parser.add_argument("--require-sam3", action="store_true")
+    parser.add_argument("--download-lightx2v-lora", action="store_true")
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -174,14 +166,10 @@ def main():
             config,
             skip_download=args.skip_download,
         )
-        if args.download_fast_lora or args.require_fast_lora:
-            ensure_fast_lora(
-                config,
-                skip_download=args.skip_download,
-                required=args.require_fast_lora,
-            )
         if args.download_sam3 or args.require_sam3:
             ensure_sam3(config, required=args.require_sam3)
+        if args.download_lightx2v_lora:
+            ensure_lightx2v_lora(config)
 
 
 if __name__ == "__main__":

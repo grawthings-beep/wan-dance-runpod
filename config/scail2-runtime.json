@@ -54,17 +54,6 @@
       }
     ]
   },
-  "fast_lora": {
-    "model_repository": "lightx2v/Wan2.1-I2V-14B-480P-StepDistill-CfgDistill-Lightx2v",
-    "model_revision": "fef288b326f4fed6d2983b9800c35363da31fcfe",
-    "allow_patterns": [
-      "loras/Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors"
-    ],
-    "checkpoint_dir": "/workspace/scail2/models/LightX2V-Wan2.1-I2V-14B",
-    "model_path": "/workspace/scail2/models/LightX2V-Wan2.1-I2V-14B/loras/Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors",
-    "min_bytes": 730000000,
-    "default_alpha": 1.0
-  },
   "sam3": {
     "model_repository": "facebook/sam3",
     "model_revision": "main",
@@ -75,5 +64,21 @@
     "model_path": "/workspace/scail2/models/sam3/sam3.pt",
     "min_bytes": 1000000000,
     "gated": true
+  },
+  "lightx2v_lora": {
+    "model_repository": "lightx2v/Wan2.1-I2V-14B-480P-StepDistill-CfgDistill-Lightx2v",
+    "model_revision": "fef288b326f4fed6d2983b9800c35363da31fcfe",
+    "allow_patterns": [
+      "loras/Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors",
+      "README.md",
+      "LICENSE.txt"
+    ],
+    "checkpoint_dir": "/workspace/scail2/models/lightx2v/Wan2.1-I2V-14B-480P-StepDistill-CfgDistill-Lightx2v",
+    "lora_path": "/workspace/scail2/models/lightx2v/Wan2.1-I2V-14B-480P-StepDistill-CfgDistill-Lightx2v/loras/Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors",
+    "min_bytes": 730000000,
+    "recommended_sample_steps": 6,
+    "recommended_sample_shift": 5.0,
+    "recommended_guidance": 1.0,
+    "recommended_lora_alpha": 1.0
   }
 }

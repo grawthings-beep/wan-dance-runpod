@@ -25,6 +25,7 @@ def main():
         ROOT / "scripts" / "patch_scail2_infinity.py",
         ROOT / "scripts" / "run_scail2.py",
         ROOT / "scripts" / "app.py",
+        ROOT / "scripts" / "job_worker.py",
         ROOT / "README.md",
         ROOT / "RUNPOD_STEPS.md",
         RUNTIME,
@@ -56,23 +57,32 @@ def main():
     require(sam3["model_repository"] == "facebook/sam3", "SAM3 repo changed unexpectedly")
     require(sam3.get("gated") is True, "SAM3 gated status must be documented")
 
+    lightx2v = runtime["lightx2v_lora"]
+    require(
+        lightx2v["model_repository"] == "lightx2v/Wan2.1-I2V-14B-480P-StepDistill-CfgDistill-Lightx2v",
+        "Lightx2v LoRA repo changed unexpectedly",
+    )
+    require(
+        lightx2v["lora_path"].endswith("Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors"),
+        "Unexpected Lightx2v LoRA filename",
+    )
+    require(re.fullmatch(r"[0-9a-f]{40}", lightx2v["model_revision"]) is not None, "Bad Lightx2v LoRA revision")
+    require(int(lightx2v["min_bytes"]) >= 730000000, "Lightx2v LoRA min size is too low")
+    require(int(lightx2v["recommended_sample_steps"]) == 6, "Lightx2v LoRA should be configured for 6 steps")
+    require(float(lightx2v["recommended_sample_shift"]) == 5.0, "Lightx2v LoRA should use workflow shift 5")
+
     requirements = (ROOT / "requirements-runtime.txt").read_text(encoding="utf-8")
     require("flash_attn" not in requirements, "flash_attn should remain optional; use the SDPA fallback patch")
     require("torch" not in requirements, "base image should provide torch")
     require("ultralytics==8.4.68" in requirements, "SAM3-capable ultralytics must be pinned")
 
-    fast_lora = runtime["fast_lora"]
-    require(
-        fast_lora["model_repository"] == "lightx2v/Wan2.1-I2V-14B-480P-StepDistill-CfgDistill-Lightx2v",
-        "Expected official LightX2V fast LoRA repository",
-    )
-    require(re.fullmatch(r"[0-9a-f]{40}", fast_lora["model_revision"]) is not None, "Bad LightX2V LoRA revision")
-    require(fast_lora["model_path"].endswith("Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors"), "Expected LightX2V rank64 fast LoRA")
-    require(int(fast_lora["min_bytes"]) >= 730000000, "LightX2V LoRA min size is too low")
-
     patch_script = (ROOT / "scripts" / "patch_scail2_attention.py").read_text(encoding="utf-8")
     require("SCAIL2_RUNPOD_SDPA_FALLBACK" in patch_script, "Attention fallback patch marker is missing")
     require("scaled_dot_product_attention" in patch_script, "Attention fallback patch must use torch SDPA")
+    app_script = (ROOT / "scripts" / "app.py").read_text(encoding="utf-8")
+    run_script = (ROOT / "scripts" / "run_scail2.py").read_text(encoding="utf-8")
+    require("Lightning LoRA" in app_script, "UI must expose the Lightx2v preset")
+    require("--lightx2v-lora" in run_script, "CLI must expose the Lightx2v LoRA flag")
 
     model_loading_patch = (ROOT / "scripts" / "patch_scail2_model_loading.py").read_text(encoding="utf-8")
     require("SCAIL2_RUNPOD_LOW_MEMORY_MODEL_LOADING" in model_loading_patch, "Low-memory loading patch marker is missing")
@@ -95,6 +105,7 @@ def main():
         "patch_scail2_infinity.py",
         "run_scail2.py",
         "app.py",
+        "job_worker.py",
         "validate_repo.py",
     ]:
         py_compile.compile(str(ROOT / "scripts" / script), doraise=True)
@@ -124,15 +135,16 @@ def main():
     require("wan2.1_14B_SCAIL_2_fp8_scaled.safetensors" in runner, "Runner default must use fp8 scaled weights")
     require("wan2.1_14B_SCAIL_2_fp8_scaled.safetensors" in start, "Startup default must use fp8 scaled weights")
     require("REFRESH_RUNTIME_CONFIG" in start, "Startup must refresh stale runtime configs by default")
-    require("value=6" in app and "value=1.0" in app, "UI must default to the 6-step fast profile")
-    require("--download-fast-lora" in runner, "Runner must request fast LoRA downloads when needed")
+    require('"sample_steps": 6' in app and '"sample_shift": 5.0' in app, "UI must default to the 6-step fast profile")
+    require("--download-lightx2v-lora" in runner, "Runner must request Lightx2v LoRA downloads when needed")
 
     print("Repository validation passed.")
     print(f"SCAIL-2 code: {scail['code_commit']}")
     print(f"SCAIL-2 model revision: {scail['model_revision']}")
     print(f"SCAIL-2 weights revision: {scail['scail_weights_revision']}")
-    print(f"LightX2V LoRA revision: {fast_lora['model_revision']}")
+    print(f"LightX2V LoRA revision: {lightx2v['model_revision']}")
     print(f"SAM3 auto-mask: optional gated model")
+    print(f"Lightx2v LoRA: default 6-step acceleration")
 
 
 if __name__ == "__main__":
