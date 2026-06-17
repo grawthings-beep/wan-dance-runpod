@@ -191,6 +191,7 @@ def main():
     require("SAM3_VideoTrack" in node_types and "SCAIL2ColoredMask" in node_types, "Workflow must build SAM3.1 SCAIL masks")
     forbidden_workflow_nodes = {
         "PathchSageAttentionKJ",
+        "ModelPatchTorchSettings",
         "RTXVideoSuperResolution",
         "RIFE VFI",
         "easy imageColorMatch",
@@ -201,6 +202,7 @@ def main():
     require(not (node_types & forbidden_workflow_nodes), f"Workflow still depends on optional nodes: {node_types & forbidden_workflow_nodes}")
     workflow_text = json.dumps(workflow, ensure_ascii=False)
     require("Wan21_PusaV1" not in workflow_text, "Workflow must not require Pusa LoRA")
+    require("comfyui-kjnodes" not in workflow_text, "Workflow must not require KJNodes")
     require("Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors" in workflow_text, "Workflow must use bundled LightX2V rank64 LoRA")
 
     print("Repository validation passed.")

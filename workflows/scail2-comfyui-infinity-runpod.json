@@ -244,47 +244,6 @@
       "bgcolor": "#1a1a1a"
     },
     {
-      "id": 127,
-      "type": "ModelPatchTorchSettings",
-      "pos": [
-        -320.69120641023915,
-        -698.6177453648041
-      ],
-      "size": [
-        270,
-        60
-      ],
-      "flags": {},
-      "order": 23,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 292
-        }
-      ],
-      "outputs": [
-        {
-          "name": "MODEL",
-          "type": "MODEL",
-          "links": [
-            255
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfyui-kjnodes",
-        "ver": "1.4.7",
-        "Node name for S&R": "ModelPatchTorchSettings"
-      },
-      "widgets_values": [
-        true
-      ],
-      "color": "#ffffff",
-      "bgcolor": "#1a1a1a"
-    },
-    {
       "id": 48,
       "type": "ModelSamplingSD3",
       "pos": [
@@ -302,7 +261,7 @@
         {
           "name": "model",
           "type": "MODEL",
-          "link": 255
+          "link": 292
         }
       ],
       "outputs": [
@@ -1434,14 +1393,6 @@
       "CLIP"
     ],
     [
-      255,
-      127,
-      0,
-      48,
-      0,
-      "MODEL"
-    ],
-    [
       262,
       48,
       0,
@@ -1541,7 +1492,7 @@
       292,
       96,
       0,
-      127,
+      48,
       0,
       "MODEL"
     ],
@@ -1625,7 +1576,7 @@
     "VHS_latentpreviewrate": 0,
     "VHS_MetadataImage": true,
     "VHS_KeepIntermediate": true,
-    "runpod_note": "Minimal RunPod workflow: no Pusa, RIFE, RTX upscale, EasyUse, or KJ SageAttention. Requires ComfyUI core SCAIL/SAM3 nodes, VideoHelperSuite, and comfyui-scail2-infinity."
+    "runpod_note": "Minimal RunPod workflow: no Pusa, RIFE, RTX upscale, EasyUse, or KJNodes. Requires ComfyUI core SCAIL/SAM3 nodes, VideoHelperSuite, and comfyui-scail2-infinity."
   },
   "version": 0.4
 }

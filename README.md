@@ -18,7 +18,7 @@ local `WanSCAILInfinity` custom node.
 - Long driving videos use the included Scail2-infinity node:
   81-frame windows, 5-frame overlap, stitched and trimmed automatically.
 - The RunPod workflow is trimmed to the core path: no Pusa LoRA, RIFE, RTX
-  upscaler, EasyUse post-processing, or KJ SageAttention dependency.
+  upscaler, EasyUse post-processing, or KJNodes dependency.
 - The default workflow uses Comfy-Org fp8-scaled SCAIL-2 weights, the LightX2V
   rank64 step-distill LoRA, 6 sampling steps, CFG 1.0, and SD3 shift 5.0.
 
