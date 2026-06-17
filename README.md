@@ -72,6 +72,9 @@ segment length, and CPU/GPU offload.
 - CPU offload lowers VRAM pressure but uses more system RAM and is slower. On
   48 GB A40 pods, start with Lightning LoRA and CPU offload disabled. Enable
   offload only if you hit CUDA VRAM errors and the pod has enough system RAM.
+- For the default Lightning LoRA profile, treat 48 GB VRAM as the practical
+  target. 24 GB GPUs are not enough for non-offloaded SCAIL-2 14B, and 32 GB
+  GPUs usually need CPU offload plus generous system RAM.
 - Auto-mask with SAM3 adds preprocessing time. Manual masks avoid that step.
 - Lightning LoRA uses
   `lightx2v/Wan2.1-I2V-14B-480P-StepDistill-CfgDistill-Lightx2v` and passes

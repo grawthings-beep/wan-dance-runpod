@@ -85,8 +85,12 @@ def main():
     require("--lightx2v-lora" in run_script, "CLI must expose the Lightx2v LoRA flag")
 
     model_loading_patch = (ROOT / "scripts" / "patch_scail2_model_loading.py").read_text(encoding="utf-8")
-    require("SCAIL2_RUNPOD_LOW_MEMORY_MODEL_LOADING" in model_loading_patch, "Low-memory loading patch marker is missing")
+    require("SCAIL2_RUNPOD_GPU_AWARE_MODEL_LOADING" in model_loading_patch, "GPU-aware loading patch marker is missing")
     require("safe_open" in model_loading_patch, "Low-memory loading patch must stream safetensors")
+    require("init_on_cpu=args.offload_model" in model_loading_patch, "generate.py must pass init_on_cpu from offload_model")
+    require("model_device = torch.device(\"cpu\") if init_on_cpu else self.device" in model_loading_patch, "SCAIL model must load on GPU when CPU offload is disabled")
+    require("with torch.device(device)" in model_loading_patch, "SCAIL model construction must happen on the selected device")
+    require("torch.set_default_dtype(dtype)" in model_loading_patch, "SCAIL model construction must avoid default fp32 weights")
 
     lora_patch = (ROOT / "scripts" / "patch_scail2_lora.py").read_text(encoding="utf-8")
     require("SCAIL2_RUNPOD_INPLACE_LORA_FUSION" in lora_patch, "In-place LoRA patch marker is missing")
