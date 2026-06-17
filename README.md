@@ -20,6 +20,8 @@ directly instead of the older ComfyUI SCAIL-Preview pose workflow.
 - The default UI profile mirrors the fast workflow style: Comfy-Org fp8-scaled
   SCAIL-2 weights, LightX2V step-distill LoRA, 6 sampling steps, guidance 1.0,
   and shift 5.0.
+- The loader understands Comfy fp8-scaled `scale_weight` tensors and
+  dequantizes them into the SCAIL-2 inference dtype during streaming load.
 
 ## Hardware
 

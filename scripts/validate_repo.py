@@ -89,8 +89,10 @@ def main():
     require("PREPARE_LOCK_STALE_SECONDS" in prepare_script, "Model preparation lock must be recoverable")
 
     model_loading_patch = (ROOT / "scripts" / "patch_scail2_model_loading.py").read_text(encoding="utf-8")
-    require("SCAIL2_RUNPOD_GPU_AWARE_MODEL_LOADING" in model_loading_patch, "GPU-aware loading patch marker is missing")
+    require("SCAIL2_RUNPOD_GPU_AWARE_FP8_MODEL_LOADING" in model_loading_patch, "GPU-aware fp8 loading patch marker is missing")
     require("safe_open" in model_loading_patch, "Low-memory loading patch must stream safetensors")
+    require("_scale_tensor_for_target" in model_loading_patch, "Loader must dequantize fp8 scaled weights")
+    require(".scale_weight" in model_loading_patch, "Loader must consume Comfy fp8 scale_weight tensors")
     require("init_on_cpu=args.offload_model" in model_loading_patch, "generate.py must pass init_on_cpu from offload_model")
     require("model_device = torch.device(\"cpu\") if init_on_cpu else self.device" in model_loading_patch, "SCAIL model must load on GPU when CPU offload is disabled")
     require("with torch.device(device)" in model_loading_patch, "SCAIL model construction must happen on the selected device")

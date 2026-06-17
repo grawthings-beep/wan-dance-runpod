@@ -3,7 +3,8 @@ import sys
 from pathlib import Path
 
 
-PATCH_MARKER = "SCAIL2_RUNPOD_GPU_AWARE_MODEL_LOADING"
+PATCH_MARKER = "SCAIL2_RUNPOD_GPU_AWARE_FP8_MODEL_LOADING"
+OLD_PATCH_MARKER = "SCAIL2_RUNPOD_GPU_AWARE_MODEL_LOADING"
 
 
 IMPORT_TARGET = "from safetensors.torch import load_file\n"
@@ -11,13 +12,54 @@ IMPORT_REPLACEMENT = "from safetensors import safe_open\nfrom safetensors.torch 
 
 
 HELPER_TARGET = "class SCAIL2Pipeline:\n"
-HELPER_REPLACEMENT = '''def _load_safetensors_into_model(model, filename):
+HELPER_REPLACEMENT = '''def _scale_tensor_for_target(tensor, scale, target, key):
+    value = tensor.to(device=target.device, dtype=target.dtype)
+    scale = scale.to(device=target.device, dtype=target.dtype)
+    if scale.ndim == 0 or scale.numel() == 1:
+        return value.mul_(scale.reshape(()))
+
+    if scale.ndim == 3:
+        if value.ndim != 2 or scale.shape[0] != value.shape[0] or scale.shape[2] != 1:
+            raise RuntimeError(
+                f"Unsupported block-wise fp8 scale shape for {key}: "
+                f"weight={tuple(value.shape)} scale={tuple(scale.shape)}"
+            )
+        reshaped = value.reshape(scale.shape[0], scale.shape[1], -1)
+        if reshaped.shape[:2] != scale.shape[:2]:
+            raise RuntimeError(
+                f"Cannot apply block-wise fp8 scale for {key}: "
+                f"weight={tuple(value.shape)} scale={tuple(scale.shape)}"
+            )
+        return reshaped.mul_(scale).reshape_as(value)
+
+    raise RuntimeError(
+        f"Unsupported fp8 scale shape for {key}: weight={tuple(value.shape)} "
+        f"scale={tuple(scale.shape)}"
+    )
+
+
+def _load_safetensors_into_model(model, filename):
     model_state = model.state_dict()
     missing = set(model_state.keys())
     unexpected = []
+    scaled_weights = 0
 
     with safe_open(filename, framework="pt", device="cpu") as handle:
-        for key in handle.keys():
+        keys = list(handle.keys())
+        scale_keys = {
+            key[:-len(".scale_weight")]: key
+            for key in keys
+            if key.endswith(".scale_weight")
+        }
+
+        for key in keys:
+            if key.endswith(".scale_weight"):
+                base_key = key[:-len(".scale_weight")] + ".weight"
+                if base_key in model_state:
+                    continue
+                unexpected.append(key)
+                continue
+
             if key not in model_state:
                 unexpected.append(key)
                 continue
@@ -28,9 +70,22 @@ HELPER_REPLACEMENT = '''def _load_safetensors_into_model(model, filename):
                     f"Shape mismatch for {key}: checkpoint {tuple(tensor.shape)} "
                     f"!= model {tuple(target.shape)}"
                 )
-            target.copy_(tensor.to(device=target.device, dtype=target.dtype))
+
+            scale_key = None
+            if key.endswith(".weight"):
+                scale_key = scale_keys.get(key[:-len(".weight")])
+            if scale_key is not None:
+                value = _scale_tensor_for_target(tensor, handle.get_tensor(scale_key), target, key)
+                scaled_weights += 1
+            else:
+                value = tensor.to(device=target.device, dtype=target.dtype)
+            target.copy_(value)
             missing.discard(key)
+            del value
             del tensor
+
+    if scaled_weights:
+        logging.info(f"Applied {scaled_weights} fp8 scale_weight tensors while loading SCAIL-2.")
 
     if missing or unexpected:
         details = []
@@ -71,7 +126,7 @@ LOAD_TARGET = '''        logging.info(f"Creating WanSCAILModel from {scail_safet
 '''
 
 LOAD_REPLACEMENT = '''        logging.info(f"Creating WanSCAILModel from {scail_safetensors_path}")
-        # SCAIL2_RUNPOD_GPU_AWARE_MODEL_LOADING:
+        # SCAIL2_RUNPOD_GPU_AWARE_FP8_MODEL_LOADING:
         # Build the model directly in the configured inference dtype, then stream
         # safetensors into it one tensor at a time. When CPU offload is disabled,
         # load directly onto the GPU to avoid keeping the 14B transformer in
@@ -93,6 +148,33 @@ GENERATE_REPLACEMENT = '''        t5_cpu=args.t5_cpu,
 '''
 
 
+LOAD_BLOCK_START = '''        logging.info(f"Creating WanSCAILModel from {scail_safetensors_path}")
+'''
+
+LOAD_BLOCK_END = '''        if self.lora_path is not None:
+'''
+
+
+def replace_existing_helper(text):
+    start = text.find("def _load_safetensors_into_model(model, filename):\n")
+    if start == -1:
+        raise RuntimeError("Unexpected patched scail.py contents; missing helper start.")
+    end = text.find(HELPER_TARGET, start)
+    if end == -1:
+        raise RuntimeError("Unexpected patched scail.py contents; missing SCAIL2Pipeline class.")
+    return text[:start] + HELPER_REPLACEMENT + text[end + len(HELPER_TARGET):]
+
+
+def replace_model_load_block(text):
+    start = text.find(LOAD_BLOCK_START)
+    if start == -1:
+        raise RuntimeError("Unexpected scail.py contents; missing model load block start.")
+    end = text.find(LOAD_BLOCK_END, start)
+    if end == -1:
+        raise RuntimeError("Unexpected scail.py contents; missing model load block end.")
+    return text[:start] + LOAD_REPLACEMENT + text[end:]
+
+
 def main():
     repo = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("/opt/SCAIL-2")
     scail_path = repo / "wan" / "scail.py"
@@ -103,14 +185,19 @@ def main():
     scail_changed = False
     if PATCH_MARKER not in current:
         patched = current
-        for old, new in [
-            (IMPORT_TARGET, IMPORT_REPLACEMENT),
-            (HELPER_TARGET, HELPER_REPLACEMENT),
-            (LOAD_TARGET, LOAD_REPLACEMENT),
-        ]:
-            if old not in patched:
-                raise RuntimeError(f"Unexpected scail.py contents; missing patch target: {old[:80]!r}")
-            patched = patched.replace(old, new, 1)
+        if "from safetensors import safe_open\n" not in patched:
+            if IMPORT_TARGET not in patched:
+                raise RuntimeError(f"Unexpected scail.py contents; missing patch target: {IMPORT_TARGET!r}")
+            patched = patched.replace(IMPORT_TARGET, IMPORT_REPLACEMENT, 1)
+
+        if OLD_PATCH_MARKER in patched:
+            patched = replace_existing_helper(patched)
+        else:
+            if HELPER_TARGET not in patched:
+                raise RuntimeError(f"Unexpected scail.py contents; missing patch target: {HELPER_TARGET!r}")
+            patched = patched.replace(HELPER_TARGET, HELPER_REPLACEMENT, 1)
+
+        patched = replace_model_load_block(patched)
 
         scail_path.write_text(patched, encoding="utf-8")
         scail_changed = True
