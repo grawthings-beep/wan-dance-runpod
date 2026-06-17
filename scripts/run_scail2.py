@@ -22,6 +22,19 @@ DEFAULT_SAFETENSORS = Path(
     )
 )
 DEFAULT_SAM3 = Path(os.environ.get("SAM3_MODEL", str(WORKSPACE_DIR / "models" / "sam3" / "sam3.pt")))
+DEFAULT_LIGHTX2V_LORA = Path(
+    os.environ.get(
+        "LIGHTX2V_LORA_PATH",
+        str(
+            WORKSPACE_DIR
+            / "models"
+            / "lightx2v"
+            / "Wan2.1-I2V-14B-480P-StepDistill-CfgDistill-Lightx2v"
+            / "loras"
+            / "Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors"
+        ),
+    )
+)
 
 
 def run(command, cwd=None):
@@ -60,6 +73,8 @@ def ensure_models(args):
     ]
     if args.auto_mask:
         command.append("--download-sam3")
+    if args.lightx2v_lora:
+        command.append("--download-lightx2v-lora")
     run(command, cwd=APP_ROOT)
 
 
@@ -130,6 +145,11 @@ def generate(args, inputs, output_file):
     require_path(DEFAULT_SAFETENSORS, "SCAIL-2 safetensors")
     for label, path in inputs.items():
         require_path(path, label)
+    lora_path = args.lora_path
+    if args.lightx2v_lora and not lora_path:
+        lora_path = str(DEFAULT_LIGHTX2V_LORA)
+    if lora_path:
+        require_path(lora_path, "LoRA")
 
     command = [
         sys.executable,
@@ -177,8 +197,8 @@ def generate(args, inputs, output_file):
     ]
     if args.mode == "replacement":
         command.append("--replace_flag")
-    if args.lora_path:
-        command.extend(["--lora_path", args.lora_path, "--lora_alpha", str(args.lora_alpha)])
+    if lora_path:
+        command.extend(["--lora_path", lora_path, "--lora_alpha", str(args.lora_alpha)])
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
     run(command, cwd=SCAIL2_REPO)
@@ -209,6 +229,7 @@ def parse_args():
     parser.add_argument("--segment-overlap", type=int, default=5)
     parser.add_argument("--seed", type=int, default=-1)
     parser.add_argument("--offload-model", type=lambda value: str(value).lower() in {"1", "true", "yes"}, default=True)
+    parser.add_argument("--lightx2v-lora", action="store_true")
     parser.add_argument("--lora-path")
     parser.add_argument("--lora-alpha", type=float, default=1.0)
     parser.add_argument("--output")

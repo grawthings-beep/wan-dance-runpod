@@ -17,16 +17,55 @@ directly instead of the older ComfyUI SCAIL-Preview pose workflow.
 
 ## Hardware
 
-- Recommended GPU: 48 GB VRAM or more.
-- 24 GB may be tight and should be treated as experimental.
+- Recommended GPU: 48 GB VRAM or more for the default offload path.
+- 24 GB VRAM is experimental. Use Draft settings, short videos, and CPU
+  offload; out-of-memory failures are still possible.
+- 80 GB-class GPUs are recommended when speed matters. Disable CPU offload only
+  when the selected pod has enough VRAM; it is faster but less forgiving.
 - Network volume: 70 GB minimum, 100 GB recommended.
-- First use downloads roughly 45 GB. The image uses the already converted
-  `Comfy-Org/SCAIL-2` fp16 safetensors file, so there is no startup-time
-  checkpoint conversion.
+- Container disk: 30 GB or more.
+- First use downloads roughly 46 GB. The largest file is the already converted
+  `Comfy-Org/SCAIL-2` fp16 safetensors file, which is validated as at least
+  32.7 GB. The SCAIL-2 support files add several more GB, and optional SAM3
+  mask weights add at least 1 GB. The optional Lightx2v 8-step LoRA adds about
+  739 MB and is enabled by default because it is the practical first-pass mode.
+  Keep extra volume space for job inputs, logs, and generated videos.
 - The image patches SCAIL-2 attention to fall back to PyTorch SDPA when
   external `flash-attn` wheels are unavailable. This avoids a hard
   `FLASH_ATTN_2_AVAILABLE` assertion on Blackwell/CUDA 12.8 pods, though
   native flash-attn can still be faster when present.
+
+## Runtime Behavior
+
+- The Gradio UI now submits persistent server-side jobs instead of running the
+  full generation inside the browser request.
+- You can leave or refresh the page while a job is running. Reopen the UI, load
+  the job from Recent jobs, or paste the Job ID to view status, logs, and output.
+- Job metadata and logs are stored under `/workspace/scail2/jobs/<job_id>/`.
+- Finished videos are saved under `/workspace/scail2/output/`.
+
+## Speed Controls
+
+Generation time is dominated by video length, resolution, sampling steps,
+segment length, and CPU/GPU offload.
+
+- Use the UI Speed preset:
+  - Lightning LoRA: 896 x 512, 8 steps, Lightx2v LoRA, fast first-pass mode.
+  - Draft: 512 x 512, 20 steps, shorter segments.
+  - Balanced: 896 x 512, 30 steps, medium segments.
+  - Quality: 896 x 512, 40 steps, longer segments.
+- Keep the driving video short for tests. Runtime scales with the number of
+  frames.
+- Reducing sampling steps is usually close to linear: 20 steps is much faster
+  than 40, with a quality tradeoff.
+- Lower resolution reduces memory and runtime sharply.
+- CPU offload lowers VRAM pressure but is slower. Turn it off on larger GPUs if
+  the job fits in VRAM.
+- Auto-mask with SAM3 adds preprocessing time. Manual masks avoid that step.
+- Lightning LoRA uses
+  `lightx2v/Wan2.1-I2V-14B-480P-StepDistill-CfgDistill-Lightx2v` and passes
+  `--sample_steps 8 --sample_shift 1 --sample_guide_scale 1 --lora_alpha 1`.
+  Treat it as the default cost-control mode before spending time on Quality.
 
 ## Quick Start
 
@@ -36,12 +75,15 @@ directly instead of the older ComfyUI SCAIL-Preview pose workflow.
 4. Expose HTTP port `8188`.
 5. Set `HF_TOKEN` to a Hugging Face token.
 6. Open the Gradio UI on port `8188`.
-8. Upload a reference image and a driving video.
+7. Upload a reference image and a driving video.
+8. Choose Lightning LoRA for the first pass, then Draft, Balanced, or Quality
+   if the result is promising.
 9. Enable auto-mask if your token has access to `facebook/sam3`, or upload
    prepared SCAIL-2 mask files manually.
 
 Outputs are saved under `/workspace/scail2/output`.
-Logs are appended to `/workspace/logs/wan-dance-startup.log`.
+Startup logs are appended to `/workspace/logs/wan-dance-startup.log`.
+Per-generation logs are saved under `/workspace/scail2/jobs/<job_id>/`.
 
 ## Masks
 
@@ -89,6 +131,8 @@ See `runpod-template.env.example`.
 - `DOWNLOAD_SAM3=1` pre-downloads `facebook/sam3` for auto-mask. If this is
   `0`, the first auto-mask generation downloads it on demand. This model is
   gated, so the `HF_TOKEN` account must have accepted the license.
+- `DOWNLOAD_LIGHTX2V_LORA=1` pre-downloads the Lightx2v 8-step LoRA. Leave this
+  enabled unless you only want the original 30-40 step SCAIL-2 path.
 - `START_GRADIO=1` starts the web UI on `PORT`, default `8188`.
 - `DOWNLOAD_MODELS=0` is useful after the network volume is already prepared.
 
@@ -98,5 +142,7 @@ See `runpod-template.env.example`.
 - SCAIL-2 model: https://huggingface.co/zai-org/SCAIL-2
 - SCAIL-2 project page: https://teal024.github.io/SCAIL-2/
 - SCAIL-Pose masks: https://github.com/zai-org/SCAIL-Pose
+- Lightx2v 8-step LoRA:
+  https://huggingface.co/lightx2v/Wan2.1-I2V-14B-480P-StepDistill-CfgDistill-Lightx2v
 
 See `THIRD_PARTY.md` for component and model licensing notes.

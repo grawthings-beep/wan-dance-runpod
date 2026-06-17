@@ -14,3 +14,6 @@ their respective licenses and terms.
 
 `facebook/sam3` is optional and gated. Auto-mask requires a Hugging Face account
 that has accepted that model's license.
+
+`lightx2v/Wan2.1-I2V-14B-480P-StepDistill-CfgDistill-Lightx2v` is optional and
+is used only when the Lightx2v 8-step LoRA mode is enabled.

@@ -4,6 +4,7 @@ from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
+import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -130,12 +131,33 @@ def ensure_sam3(config, required=False):
         return None
 
 
+def ensure_lightx2v_lora(config):
+    lora = config["lightx2v_lora"]
+    lora_path = expand_path(
+        os.environ.get("LIGHTX2V_LORA_PATH", lora["lora_path"])
+    )
+    if file_is_large_enough(lora_path, lora["min_bytes"]):
+        print(f"SKIP Lightx2v LoRA: {lora_path}", flush=True)
+        return lora_path
+
+    snapshot_download(
+        lora["model_repository"],
+        os.environ.get("LIGHTX2V_LORA_REVISION", lora["model_revision"]),
+        expand_path(lora["checkpoint_dir"]),
+        lora["allow_patterns"],
+    )
+    require_file(lora_path, lora["min_bytes"], "Lightx2v LoRA")
+    print(f"Lightx2v LoRA ready: {lora_path}", flush=True)
+    return lora_path
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
     parser.add_argument("--skip-download", action="store_true")
     parser.add_argument("--download-sam3", action="store_true")
     parser.add_argument("--require-sam3", action="store_true")
+    parser.add_argument("--download-lightx2v-lora", action="store_true")
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -146,6 +168,8 @@ def main():
         )
         if args.download_sam3 or args.require_sam3:
             ensure_sam3(config, required=args.require_sam3)
+        if args.download_lightx2v_lora:
+            ensure_lightx2v_lora(config)
 
 
 if __name__ == "__main__":

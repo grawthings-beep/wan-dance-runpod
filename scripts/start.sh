@@ -22,6 +22,7 @@ export SCAIL2_CKPT_DIR="${SCAIL2_CKPT_DIR:-${MODEL_ROOT}/SCAIL-2}"
 export SCAIL2_WEIGHTS_DIR="${SCAIL2_WEIGHTS_DIR:-${MODEL_ROOT}/Comfy-Org-SCAIL-2}"
 export SCAIL2_SAFETENSORS="${SCAIL2_SAFETENSORS:-${SCAIL2_WEIGHTS_DIR}/diffusion_models/wan2.1_14B_SCAIL_2_fp16.safetensors}"
 export SAM3_MODEL="${SAM3_MODEL:-${MODEL_ROOT}/sam3/sam3.pt}"
+export LIGHTX2V_LORA_PATH="${LIGHTX2V_LORA_PATH:-${MODEL_ROOT}/lightx2v/Wan2.1-I2V-14B-480P-StepDistill-CfgDistill-Lightx2v/loras/Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors}"
 
 if [[ ! -f "${RUNTIME_CONFIG}" ]]; then
   cp "${APP_ROOT}/config/scail2-runtime.json" "${RUNTIME_CONFIG}"
@@ -35,8 +36,11 @@ fi
 if [[ "${DOWNLOAD_SAM3:-0}" == "1" ]]; then
   prepare_args+=("--download-sam3")
 fi
+if [[ "${DOWNLOAD_LIGHTX2V_LORA:-1}" == "1" ]]; then
+  prepare_args+=("--download-lightx2v-lora")
+fi
 
-if [[ "${DOWNLOAD_MODELS:-1}" == "1" || "${DOWNLOAD_SAM3:-0}" == "1" ]]; then
+if [[ "${DOWNLOAD_MODELS:-1}" == "1" || "${DOWNLOAD_SAM3:-0}" == "1" || "${DOWNLOAD_LIGHTX2V_LORA:-1}" == "1" ]]; then
   if [[ "${PREPARE_MODELS_BACKGROUND:-1}" == "1" ]]; then
     echo "[wan-dance] Preparing models in the background; UI will start immediately."
     "${PYTHON_BIN}" "${APP_ROOT}/scripts/prepare_models.py" "${prepare_args[@]}" &
