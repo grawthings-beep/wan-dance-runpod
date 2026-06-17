@@ -81,8 +81,12 @@ def main():
     require("scaled_dot_product_attention" in patch_script, "Attention fallback patch must use torch SDPA")
     app_script = (ROOT / "scripts" / "app.py").read_text(encoding="utf-8")
     run_script = (ROOT / "scripts" / "run_scail2.py").read_text(encoding="utf-8")
+    prepare_script = (ROOT / "scripts" / "prepare_models.py").read_text(encoding="utf-8")
     require("Lightning LoRA" in app_script, "UI must expose the Lightx2v preset")
     require("--lightx2v-lora" in run_script, "CLI must expose the Lightx2v LoRA flag")
+    require(".prepare.lock.d" in prepare_script, "Model preparation lock must use a directory lock")
+    require("fcntl" not in prepare_script, "Model preparation must not rely on fcntl/flock on /workspace")
+    require("PREPARE_LOCK_STALE_SECONDS" in prepare_script, "Model preparation lock must be recoverable")
 
     model_loading_patch = (ROOT / "scripts" / "patch_scail2_model_loading.py").read_text(encoding="utf-8")
     require("SCAIL2_RUNPOD_GPU_AWARE_MODEL_LOADING" in model_loading_patch, "GPU-aware loading patch marker is missing")

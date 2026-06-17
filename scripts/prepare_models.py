@@ -4,7 +4,9 @@ from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
+import shutil
 import sys
+import time
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,22 +33,75 @@ def require_file(path, min_bytes, label):
         )
 
 
+def env_float(name, default):
+    value = os.environ.get(name, "").strip()
+    if not value:
+        return default
+    try:
+        return float(value)
+    except ValueError:
+        return default
+
+
 @contextmanager
 def prepare_lock(config):
     model_root = expand_path(os.environ.get("MODEL_ROOT", "/workspace/scail2/models"))
     model_root.mkdir(parents=True, exist_ok=True)
-    lock_path = model_root / ".prepare.lock"
-    with lock_path.open("w", encoding="utf-8") as handle:
-        if os.name == "posix":
-            import fcntl
+    lock_dir = model_root / ".prepare.lock.d"
+    poll_seconds = max(env_float("PREPARE_LOCK_POLL_SECONDS", 5.0), 0.5)
+    stale_seconds = max(env_float("PREPARE_LOCK_STALE_SECONDS", 43200.0), 0.0)
+    printed_wait = False
 
-            print(f"Waiting for model-preparation lock: {lock_path}", flush=True)
-            fcntl.flock(handle, fcntl.LOCK_EX)
+    while True:
         try:
-            yield
-        finally:
-            if os.name == "posix":
-                fcntl.flock(handle, fcntl.LOCK_UN)
+            lock_dir.mkdir(mode=0o700)
+            metadata = {
+                "pid": os.getpid(),
+                "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "model_root": str(model_root),
+            }
+            (lock_dir / "owner.json").write_text(
+                json.dumps(metadata, indent=2),
+                encoding="utf-8",
+            )
+            break
+        except FileExistsError:
+            if not printed_wait:
+                print(f"Waiting for model-preparation lock: {lock_dir}", flush=True)
+                printed_wait = True
+
+            if stale_seconds:
+                try:
+                    age = time.time() - lock_dir.stat().st_mtime
+                except FileNotFoundError:
+                    continue
+                if age > stale_seconds:
+                    print(
+                        f"Removing stale model-preparation lock: {lock_dir} "
+                        f"(age={age:.0f}s)",
+                        flush=True,
+                    )
+                    try:
+                        shutil.rmtree(lock_dir)
+                    except FileNotFoundError:
+                        pass
+                    continue
+
+            time.sleep(poll_seconds)
+
+    try:
+        yield
+    finally:
+        try:
+            shutil.rmtree(lock_dir)
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            print(
+                f"WARNING: failed to remove model-preparation lock {lock_dir}: {exc}",
+                file=sys.stderr,
+                flush=True,
+            )
 
 
 def snapshot_download(repo_id, revision, local_dir, allow_patterns):

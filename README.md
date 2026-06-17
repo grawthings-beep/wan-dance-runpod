@@ -151,6 +151,9 @@ See `runpod-template.env.example`.
   enabled unless you only want the original 30-40 step SCAIL-2 path.
 - `LIGHTX2V_LORA=1` enables that LoRA by default for CLI runs. Set this to `0`
   to test raw SCAIL-2 without the fast LoRA.
+- `PREPARE_LOCK_STALE_SECONDS=43200` controls when an abandoned model-download
+  lock is removed. The lock uses a directory instead of `flock` so it works on
+  RunPod `/workspace` volumes that reject POSIX file locks.
 - `START_GRADIO=1` starts the web UI on `PORT`, default `8188`.
 - `DOWNLOAD_MODELS=0` is useful after the network volume is already prepared.
 
