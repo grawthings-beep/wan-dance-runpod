@@ -80,5 +80,57 @@
     "recommended_sample_shift": 5.0,
     "recommended_guidance": 1.0,
     "recommended_lora_alpha": 1.0
+  },
+  "comfyui": {
+    "root": "/opt/ComfyUI",
+    "workspace_root": "/workspace/ComfyUI",
+    "wan_repository": "Comfy-Org/Wan_2.1_ComfyUI_repackaged",
+    "wan_revision": "06e001fc51048fb03433a6fb25334de7836704a5",
+    "wan_checkpoint_dir": "/workspace/scail2/models/Comfy-Org-Wan_2.1_ComfyUI_repackaged",
+    "wan_allow_patterns": [
+      "split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "split_files/vae/wan_2.1_vae.safetensors",
+      "split_files/clip_vision/clip_vision_h.safetensors",
+      "README.md"
+    ],
+    "sam31_repository": "Comfy-Org/sam3.1",
+    "sam31_revision": "ba901fbc9701054c359ed5240c4d76f83a178108",
+    "sam31_checkpoint_dir": "/workspace/scail2/models/Comfy-Org-sam3.1",
+    "sam31_allow_patterns": [
+      "checkpoints/sam3.1_multiplex_fp16.safetensors",
+      "README.md"
+    ],
+    "required_files": [
+      {
+        "source": "/workspace/scail2/models/Comfy-Org-SCAIL-2/diffusion_models/wan2.1_14B_SCAIL_2_fp8_scaled.safetensors",
+        "target": "diffusion_models/wan2.1_14B_SCAIL_2_fp8_scaled.safetensors",
+        "min_bytes": 17600000000
+      },
+      {
+        "source": "/workspace/scail2/models/Comfy-Org-Wan_2.1_ComfyUI_repackaged/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+        "target": "text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+        "min_bytes": 6700000000
+      },
+      {
+        "source": "/workspace/scail2/models/Comfy-Org-Wan_2.1_ComfyUI_repackaged/split_files/vae/wan_2.1_vae.safetensors",
+        "target": "vae/wan_2.1_vae.safetensors",
+        "min_bytes": 250000000
+      },
+      {
+        "source": "/workspace/scail2/models/Comfy-Org-Wan_2.1_ComfyUI_repackaged/split_files/clip_vision/clip_vision_h.safetensors",
+        "target": "clip_vision/clip_vision_h.safetensors",
+        "min_bytes": 1260000000
+      },
+      {
+        "source": "/workspace/scail2/models/lightx2v/Wan2.1-I2V-14B-480P-StepDistill-CfgDistill-Lightx2v/loras/Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors",
+        "target": "loras/Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors",
+        "min_bytes": 730000000
+      },
+      {
+        "source": "/workspace/scail2/models/Comfy-Org-sam3.1/checkpoints/sam3.1_multiplex_fp16.safetensors",
+        "target": "checkpoints/sam3.1_multiplex_fp16.safetensors",
+        "min_bytes": 1740000000
+      }
+    ]
   }
 }

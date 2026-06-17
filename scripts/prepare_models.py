@@ -33,6 +33,32 @@ def require_file(path, min_bytes, label):
         )
 
 
+def link_or_copy(source, target):
+    source = expand_path(str(source))
+    target = expand_path(str(target))
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    if target.is_symlink():
+        if target.resolve() == source.resolve():
+            return
+        target.unlink()
+    elif target.exists():
+        if file_is_large_enough(target, source.stat().st_size):
+            return
+        target.unlink()
+
+    try:
+        os.symlink(source, target)
+        print(f"Linked {target} -> {source}", flush=True)
+    except OSError as exc:
+        print(
+            f"WARNING: symlink failed for {target}: {exc}; copying instead.",
+            file=sys.stderr,
+            flush=True,
+        )
+        shutil.copy2(source, target)
+
+
 def env_float(name, default):
     value = os.environ.get(name, "").strip()
     if not value:
@@ -206,10 +232,59 @@ def ensure_lightx2v_lora(config):
     return lora_path
 
 
+def ensure_comfyui_models(config, skip_download=False, download_sam31=True):
+    comfy = config["comfyui"]
+    scail = config["scail2"]
+    models_dir = expand_path(
+        os.environ.get(
+            "COMFYUI_MODELS_DIR",
+            str(expand_path(os.environ.get("COMFYUI_WORKSPACE_ROOT", comfy["workspace_root"])) / "models"),
+        )
+    )
+
+    scail_weights_dir = expand_path(
+        os.environ.get("SCAIL2_WEIGHTS_DIR", scail["scail_weights_dir"])
+    )
+    if not skip_download:
+        snapshot_download(
+            scail["scail_weights_repository"],
+            os.environ.get("SCAIL2_WEIGHTS_REVISION", scail["scail_weights_revision"]),
+            scail_weights_dir,
+            scail["scail_allow_patterns"],
+        )
+        snapshot_download(
+            comfy["wan_repository"],
+            os.environ.get("COMFYUI_WAN_REVISION", comfy["wan_revision"]),
+            expand_path(comfy["wan_checkpoint_dir"]),
+            comfy["wan_allow_patterns"],
+        )
+        if download_sam31:
+            snapshot_download(
+                comfy["sam31_repository"],
+                os.environ.get("COMFYUI_SAM31_REVISION", comfy["sam31_revision"]),
+                expand_path(comfy["sam31_checkpoint_dir"]),
+                comfy["sam31_allow_patterns"],
+            )
+
+    ensure_lightx2v_lora(config)
+
+    for item in comfy["required_files"]:
+        source = expand_path(item["source"])
+        require_file(source, item["min_bytes"], f"ComfyUI model {item['target']}")
+        target = models_dir / item["target"]
+        link_or_copy(source, target)
+        require_file(target, item["min_bytes"], f"ComfyUI linked model {item['target']}")
+
+    print(f"ComfyUI model files ready: {models_dir}", flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
     parser.add_argument("--skip-download", action="store_true")
+    parser.add_argument("--comfyui-only", action="store_true")
+    parser.add_argument("--download-comfyui", action="store_true")
+    parser.add_argument("--skip-comfyui-sam31", action="store_true")
     parser.add_argument("--download-sam3", action="store_true")
     parser.add_argument("--require-sam3", action="store_true")
     parser.add_argument("--download-lightx2v-lora", action="store_true")
@@ -217,13 +292,20 @@ def main():
 
     config = load_config(args.config)
     with prepare_lock(config):
-        ensure_scail2(
-            config,
-            skip_download=args.skip_download,
-        )
+        if args.download_comfyui:
+            ensure_comfyui_models(
+                config,
+                skip_download=args.skip_download,
+                download_sam31=not args.skip_comfyui_sam31,
+            )
+        if not args.comfyui_only:
+            ensure_scail2(
+                config,
+                skip_download=args.skip_download,
+            )
         if args.download_sam3 or args.require_sam3:
             ensure_sam3(config, required=args.require_sam3)
-        if args.download_lightx2v_lora:
+        if args.download_lightx2v_lora and not args.download_comfyui:
             ensure_lightx2v_lora(config)
 
 
