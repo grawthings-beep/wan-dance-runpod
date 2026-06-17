@@ -17,11 +17,13 @@ directly instead of the older ComfyUI SCAIL-Preview pose workflow.
 
 ## Hardware
 
-- Recommended GPU: 48 GB VRAM or more for the default offload path.
+- Recommended GPU: 48 GB VRAM or more for the Lightning LoRA first-pass path.
 - 24 GB VRAM is experimental. Use Draft settings, short videos, and CPU
   offload; out-of-memory failures are still possible.
-- 80 GB-class GPUs are recommended when speed matters. Disable CPU offload only
-  when the selected pod has enough VRAM; it is faster but less forgiving.
+- 48 GB GPUs should start with CPU offload disabled for Lightning LoRA. CPU
+  offload reduces VRAM pressure but can exhaust RunPod container RAM on pods
+  with roughly 46 GB system memory.
+- 80 GB-class GPUs are recommended when speed matters.
 - Network volume: 70 GB minimum, 100 GB recommended.
 - Container disk: 30 GB or more.
 - First use downloads roughly 46 GB. The largest file is the already converted
@@ -61,8 +63,9 @@ segment length, and CPU/GPU offload.
 - Reducing sampling steps is usually close to linear: 20 steps is much faster
   than 40, with a quality tradeoff.
 - Lower resolution reduces memory and runtime sharply.
-- CPU offload lowers VRAM pressure but is slower. Turn it off on larger GPUs if
-  the job fits in VRAM.
+- CPU offload lowers VRAM pressure but uses more system RAM and is slower. On
+  48 GB A40 pods, start with Lightning LoRA and CPU offload disabled. Enable
+  offload only if you hit CUDA VRAM errors and the pod has enough system RAM.
 - Auto-mask with SAM3 adds preprocessing time. Manual masks avoid that step.
 - Lightning LoRA uses
   `lightx2v/Wan2.1-I2V-14B-480P-StepDistill-CfgDistill-Lightx2v` and passes

@@ -27,6 +27,7 @@ SPEED_PRESETS = {
         "segment_len": 65,
         "segment_overlap": 4,
         "lightx2v_lora": True,
+        "offload_model": False,
     },
     "Draft": {
         "target_w": 512,
@@ -37,6 +38,7 @@ SPEED_PRESETS = {
         "segment_len": 49,
         "segment_overlap": 3,
         "lightx2v_lora": False,
+        "offload_model": True,
     },
     "Balanced": {
         "target_w": 896,
@@ -47,6 +49,7 @@ SPEED_PRESETS = {
         "segment_len": 65,
         "segment_overlap": 4,
         "lightx2v_lora": False,
+        "offload_model": True,
     },
     "Quality": {
         "target_w": 896,
@@ -57,6 +60,7 @@ SPEED_PRESETS = {
         "segment_len": 81,
         "segment_overlap": 5,
         "lightx2v_lora": False,
+        "offload_model": True,
     },
 }
 
@@ -220,7 +224,7 @@ def refresh_recent_jobs(selected=None):
 
 
 def apply_preset(preset):
-    values = SPEED_PRESETS.get(preset or "Balanced", SPEED_PRESETS["Balanced"])
+    values = SPEED_PRESETS.get(preset or "Lightning LoRA", SPEED_PRESETS["Lightning LoRA"])
     return (
         values["target_w"],
         values["target_h"],
@@ -230,6 +234,7 @@ def apply_preset(preset):
         values["segment_len"],
         values["segment_overlap"],
         values["lightx2v_lora"],
+        values["offload_model"],
     )
 
 
@@ -434,22 +439,22 @@ with gr.Blocks(title="SCAIL-2 Wan Dance") as demo:
         with gr.Column():
             speed_preset = gr.Dropdown(
                 list(SPEED_PRESETS.keys()),
-                value="Balanced",
+                value="Lightning LoRA",
                 label="Speed preset",
             )
             target_w = gr.Number(value=896, precision=0, label="Target width")
             target_h = gr.Number(value=512, precision=0, label="Target height")
-            sample_steps = gr.Number(value=30, precision=0, label="Sampling steps")
-            sample_shift = gr.Number(value=3.0, label="Sample shift")
-            guidance = gr.Number(value=5.0, label="Guidance scale")
+            sample_steps = gr.Number(value=8, precision=0, label="Sampling steps")
+            sample_shift = gr.Number(value=1.0, label="Sample shift")
+            guidance = gr.Number(value=1.0, label="Guidance scale")
             seed = gr.Number(value=-1, precision=0, label="Seed (-1=random)")
             segment_len = gr.Number(value=65, precision=0, label="Segment length")
             segment_overlap = gr.Number(value=4, precision=0, label="Segment overlap")
             max_persons = gr.Number(value=2, precision=0, label="Auto-mask max persons")
             sam_text = gr.Textbox(value="human character", label="SAM3 text prompts")
             matchnearest = gr.Checkbox(value=False, label="Replacement: match nearest driving actor")
-            offload_model = gr.Checkbox(value=True, label="CPU offload (lower VRAM, slower)")
-            lightx2v_lora = gr.Checkbox(value=False, label="Lightx2v 8-step LoRA")
+            offload_model = gr.Checkbox(value=False, label="CPU offload (lower VRAM, slower, higher RAM)")
+            lightx2v_lora = gr.Checkbox(value=True, label="Lightx2v 8-step LoRA")
             lora_alpha = gr.Number(value=1.0, label="LoRA alpha")
             button = gr.Button("Generate")
     with gr.Row():
@@ -477,6 +482,7 @@ with gr.Blocks(title="SCAIL-2 Wan Dance") as demo:
             segment_len,
             segment_overlap,
             lightx2v_lora,
+            offload_model,
         ],
     )
     button.click(

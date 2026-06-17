@@ -38,18 +38,18 @@ mode without SAM3.
 
 Open the Pod HTTP endpoint on port `8188`.
 
-For a first test, use Lightning LoRA and keep the driving video short. Lightning
-LoRA uses 896 x 512, 8 sampling steps, `sample_shift=1`,
-`sample_guide_scale=1`, and the Lightx2v distillation LoRA. Draft uses 512 x
-512 and 20 sampling steps. Balanced uses 896 x 512 and 30 steps. Quality uses
-896 x 512 and 40 steps.
+For a first test on a 48 GB A40 pod, use Lightning LoRA with CPU offload
+disabled and keep the driving video short. Lightning LoRA uses 896 x 512, 8
+sampling steps, `sample_shift=1`, `sample_guide_scale=1`, and the Lightx2v
+distillation LoRA. Draft uses 512 x 512 and 20 sampling steps. Balanced uses 896
+x 512 and 30 steps. Quality uses 896 x 512 and 40 steps.
 
 The container applies a build-time SCAIL-2 attention patch so generation can
 fall back to PyTorch SDPA when `flash-attn` is not available. If you still hit
 memory errors, reduce sampling steps, resolution, or segment length before
-increasing video duration. CPU offload lowers VRAM use and is enabled by
-default, but it is slower. Disable it only on larger GPUs when the job fits in
-VRAM.
+increasing video duration. CPU offload lowers VRAM use but is slower and can
+raise system-RAM use enough to trigger RunPod container OOM. Use it only when
+CUDA VRAM is the limiting factor and the pod has enough system RAM.
 
 If Lightning LoRA does not produce a usable preview on a short clip, avoid
 spending GPU time on longer Balanced or Quality jobs for the same input pair.
