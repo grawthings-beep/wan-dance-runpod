@@ -20,6 +20,9 @@ def main():
         ROOT / "scripts" / "start.sh",
         ROOT / "scripts" / "prepare_models.py",
         ROOT / "scripts" / "patch_scail2_attention.py",
+        ROOT / "scripts" / "patch_scail2_model_loading.py",
+        ROOT / "scripts" / "patch_scail2_lora.py",
+        ROOT / "scripts" / "patch_scail2_infinity.py",
         ROOT / "scripts" / "run_scail2.py",
         ROOT / "scripts" / "app.py",
         ROOT / "README.md",
@@ -39,10 +42,13 @@ def main():
     require(scail["code_commit"] in dockerfile, "Dockerfile is missing pinned SCAIL-2 commit")
     require(scail["pose_commit"] in dockerfile, "Dockerfile is missing pinned SCAIL-Pose commit")
     require("patch_scail2_attention.py" in dockerfile, "Dockerfile must patch SCAIL-2 attention fallback")
+    require("patch_scail2_model_loading.py" in dockerfile, "Dockerfile must patch SCAIL-2 low-memory loading")
+    require("patch_scail2_lora.py" in dockerfile, "Dockerfile must patch SCAIL-2 LoRA fusion")
+    require("patch_scail2_infinity.py" in dockerfile, "Dockerfile must patch SCAIL-2 infinity windowing")
     require(len(scail["required_files"]) >= 7, "Expected official SCAIL-2 support files")
     require("model/1/fsdp2_rank_0000_checkpoint.pt" not in json.dumps(scail), "FSDP checkpoint should not be downloaded")
-    require(scail["scail_path"].endswith("wan2.1_14B_SCAIL_2_fp16.safetensors"), "Expected direct fp16 safetensors")
-    require(int(scail["scail_min_bytes"]) >= 32700000000, "SCAIL-2 safetensors min size is too low")
+    require(scail["scail_path"].endswith("wan2.1_14B_SCAIL_2_fp8_scaled.safetensors"), "Expected fp8 scaled safetensors")
+    require(int(scail["scail_min_bytes"]) >= 17600000000, "SCAIL-2 fp8 safetensors min size is too low")
     for item in scail["required_files"]:
         require(int(item["min_bytes"]) > 0, f"Missing min_bytes: {item['path']}")
 
@@ -55,11 +61,42 @@ def main():
     require("torch" not in requirements, "base image should provide torch")
     require("ultralytics==8.4.68" in requirements, "SAM3-capable ultralytics must be pinned")
 
+    fast_lora = runtime["fast_lora"]
+    require(
+        fast_lora["model_repository"] == "lightx2v/Wan2.1-I2V-14B-480P-StepDistill-CfgDistill-Lightx2v",
+        "Expected official LightX2V fast LoRA repository",
+    )
+    require(re.fullmatch(r"[0-9a-f]{40}", fast_lora["model_revision"]) is not None, "Bad LightX2V LoRA revision")
+    require(fast_lora["model_path"].endswith("Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors"), "Expected LightX2V rank64 fast LoRA")
+    require(int(fast_lora["min_bytes"]) >= 730000000, "LightX2V LoRA min size is too low")
+
     patch_script = (ROOT / "scripts" / "patch_scail2_attention.py").read_text(encoding="utf-8")
     require("SCAIL2_RUNPOD_SDPA_FALLBACK" in patch_script, "Attention fallback patch marker is missing")
     require("scaled_dot_product_attention" in patch_script, "Attention fallback patch must use torch SDPA")
 
-    for script in ["prepare_models.py", "patch_scail2_attention.py", "run_scail2.py", "app.py", "validate_repo.py"]:
+    model_loading_patch = (ROOT / "scripts" / "patch_scail2_model_loading.py").read_text(encoding="utf-8")
+    require("SCAIL2_RUNPOD_LOW_MEMORY_MODEL_LOADING" in model_loading_patch, "Low-memory loading patch marker is missing")
+    require("safe_open" in model_loading_patch, "Low-memory loading patch must stream safetensors")
+
+    lora_patch = (ROOT / "scripts" / "patch_scail2_lora.py").read_text(encoding="utf-8")
+    require("SCAIL2_RUNPOD_INPLACE_LORA_FUSION" in lora_patch, "In-place LoRA patch marker is missing")
+    require("target.add_" in lora_patch, "LoRA patch must apply deltas in-place")
+
+    infinity_patch = (ROOT / "scripts" / "patch_scail2_infinity.py").read_text(encoding="utf-8")
+    require("SCAIL2_RUNPOD_INFINITY_WINDOWING" in infinity_patch, "Infinity windowing patch marker is missing")
+    require("slice_with_tail_pad" in infinity_patch, "Infinity patch must pad short tail windows")
+    require("Trimming stitched output" in infinity_patch, "Infinity patch must trim final overshoot")
+
+    for script in [
+        "prepare_models.py",
+        "patch_scail2_attention.py",
+        "patch_scail2_model_loading.py",
+        "patch_scail2_lora.py",
+        "patch_scail2_infinity.py",
+        "run_scail2.py",
+        "app.py",
+        "validate_repo.py",
+    ]:
         py_compile.compile(str(ROOT / "scripts" / script), doraise=True)
 
     all_text = "\n".join(
@@ -81,10 +118,20 @@ def main():
     for token in forbidden:
         require(token not in all_text, f"Old SCAIL-Preview/ComfyUI token remains: {token}")
 
+    app = (ROOT / "scripts" / "app.py").read_text(encoding="utf-8")
+    runner = (ROOT / "scripts" / "run_scail2.py").read_text(encoding="utf-8")
+    start = (ROOT / "scripts" / "start.sh").read_text(encoding="utf-8")
+    require("wan2.1_14B_SCAIL_2_fp8_scaled.safetensors" in runner, "Runner default must use fp8 scaled weights")
+    require("wan2.1_14B_SCAIL_2_fp8_scaled.safetensors" in start, "Startup default must use fp8 scaled weights")
+    require("REFRESH_RUNTIME_CONFIG" in start, "Startup must refresh stale runtime configs by default")
+    require("value=6" in app and "value=1.0" in app, "UI must default to the 6-step fast profile")
+    require("--download-fast-lora" in runner, "Runner must request fast LoRA downloads when needed")
+
     print("Repository validation passed.")
     print(f"SCAIL-2 code: {scail['code_commit']}")
     print(f"SCAIL-2 model revision: {scail['model_revision']}")
     print(f"SCAIL-2 weights revision: {scail['scail_weights_revision']}")
+    print(f"LightX2V LoRA revision: {fast_lora['model_revision']}")
     print(f"SAM3 auto-mask: optional gated model")
 
 

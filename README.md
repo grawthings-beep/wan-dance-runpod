@@ -14,15 +14,21 @@ directly instead of the older ComfyUI SCAIL-Preview pose workflow.
   `--e2e_mode`, which skips NLF/DWPose skeleton extraction and uses SAM3 masks.
 - ComfyUI custom nodes and workflow JSON were removed. The container exposes a
   small Gradio UI and a CLI wrapper.
+- Long driving videos use an auto-windowing patch inspired by Scail2-infinity:
+  fixed 81-frame SCAIL-2 windows advance with a 5-frame overlap until the
+  driving video is covered, then the final overshoot is trimmed.
+- The default UI profile mirrors the fast workflow style: Comfy-Org fp8-scaled
+  SCAIL-2 weights, LightX2V step-distill LoRA, 6 sampling steps, guidance 1.0,
+  and shift 5.0.
 
 ## Hardware
 
 - Recommended GPU: 48 GB VRAM or more.
 - 24 GB may be tight and should be treated as experimental.
 - Network volume: 70 GB minimum, 100 GB recommended.
-- First use downloads roughly 45 GB. The image uses the already converted
-  `Comfy-Org/SCAIL-2` fp16 safetensors file, so there is no startup-time
-  checkpoint conversion.
+- First use downloads roughly 28 GB before SAM3. The image uses the already
+  converted `Comfy-Org/SCAIL-2` fp8-scaled safetensors file plus a LightX2V
+  step-distill LoRA, so there is no startup-time checkpoint conversion.
 - The image patches SCAIL-2 attention to fall back to PyTorch SDPA when
   external `flash-attn` wheels are unavailable. This avoids a hard
   `FLASH_ATTN_2_AVAILABLE` assertion on Blackwell/CUDA 12.8 pods, though
@@ -81,7 +87,13 @@ track should be selected.
 
 See `runpod-template.env.example`.
 
-- `DOWNLOAD_MODELS=1` downloads SCAIL-2 support files and direct fp16 weights.
+- `DOWNLOAD_MODELS=1` downloads SCAIL-2 support files and direct fp8-scaled weights.
+- `DOWNLOAD_FAST_LORA=1` downloads the LightX2V fast LoRA used by the default
+  6-step profile.
+- `FAST_LORA=1` enables that LoRA during generation. Set this to `0` to test
+  raw SCAIL-2 without the fast LoRA.
+- `REFRESH_RUNTIME_CONFIG=1` refreshes `/workspace/config/scail2-runtime.json`
+  from the image on startup. Keep this on when changing model defaults.
 - `PREPARE_MODELS_BACKGROUND=1` starts the UI immediately while model files
   download in the background.
 - `ENSURE_MODELS=1` makes generation wait for missing model files instead of
@@ -98,5 +110,6 @@ See `runpod-template.env.example`.
 - SCAIL-2 model: https://huggingface.co/zai-org/SCAIL-2
 - SCAIL-2 project page: https://teal024.github.io/SCAIL-2/
 - SCAIL-Pose masks: https://github.com/zai-org/SCAIL-Pose
+- LightX2V fast LoRA: https://huggingface.co/lightx2v/Wan2.1-I2V-14B-480P-StepDistill-CfgDistill-Lightx2v
 
 See `THIRD_PARTY.md` for component and model licensing notes.

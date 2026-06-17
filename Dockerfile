@@ -31,8 +31,11 @@ RUN git clone --filter=blob:none --recurse-submodules https://github.com/zai-org
     && git -C "${SCAIL2_REPO}/SCAIL-Pose" checkout "${SCAIL_POSE_COMMIT}" \
     && find "${SCAIL2_REPO}" -type d -name .git -prune -exec rm -rf {} +
 
-COPY scripts/patch_scail2_attention.py /opt/wan-dance/scripts/patch_scail2_attention.py
-RUN python3.12 /opt/wan-dance/scripts/patch_scail2_attention.py "${SCAIL2_REPO}"
+COPY scripts/patch_scail2_attention.py scripts/patch_scail2_model_loading.py scripts/patch_scail2_lora.py scripts/patch_scail2_infinity.py /opt/wan-dance/scripts/
+RUN python3.12 /opt/wan-dance/scripts/patch_scail2_attention.py "${SCAIL2_REPO}" \
+    && python3.12 /opt/wan-dance/scripts/patch_scail2_model_loading.py "${SCAIL2_REPO}" \
+    && python3.12 /opt/wan-dance/scripts/patch_scail2_lora.py "${SCAIL2_REPO}" \
+    && python3.12 /opt/wan-dance/scripts/patch_scail2_infinity.py "${SCAIL2_REPO}"
 
 COPY requirements-runtime.txt /opt/wan-dance/requirements-runtime.txt
 RUN python3.12 -m pip install --no-cache-dir -r /opt/wan-dance/requirements-runtime.txt

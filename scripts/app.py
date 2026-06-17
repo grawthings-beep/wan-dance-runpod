@@ -37,6 +37,7 @@ def generate_video(
     seed,
     segment_len,
     segment_overlap,
+    fast_lora,
     max_persons,
     sam_text,
     matchnearest,
@@ -84,6 +85,7 @@ def generate_video(
         "--output",
         str(output),
     ]
+    command.append("--fast-lora" if fast_lora else "--no-fast-lora")
     if auto_mask:
         command.append("--auto-mask")
     else:
@@ -104,7 +106,7 @@ with gr.Blocks(title="SCAIL-2 Wan Dance") as demo:
         "# SCAIL-2 Wan Dance\n"
         "End-to-end Wan2.1 14B character animation/replacement. "
         "No skeleton render is required. Masks are still important; use SAM3 auto-mask "
-        "or upload prepared SCAIL-2 masks."
+        "or upload prepared SCAIL-2 masks. Defaults use the fast fp8 + LightX2V 6-step profile."
     )
     with gr.Row():
         with gr.Column():
@@ -120,14 +122,15 @@ with gr.Blocks(title="SCAIL-2 Wan Dance") as demo:
             reference_mask = gr.Image(type="filepath", label="Reference mask image (manual mode)")
             driving_mask = gr.Video(label="Driving mask video (manual mode)")
         with gr.Column():
-            target_w = gr.Number(value=896, precision=0, label="Target width")
-            target_h = gr.Number(value=512, precision=0, label="Target height")
-            sample_steps = gr.Number(value=40, precision=0, label="Sampling steps")
-            sample_shift = gr.Number(value=3.0, label="Sample shift")
-            guidance = gr.Number(value=5.0, label="Guidance scale")
+            target_w = gr.Number(value=512, precision=0, label="Target width")
+            target_h = gr.Number(value=896, precision=0, label="Target height")
+            sample_steps = gr.Number(value=6, precision=0, label="Sampling steps")
+            sample_shift = gr.Number(value=5.0, label="Sample shift")
+            guidance = gr.Number(value=1.0, label="Guidance scale")
             seed = gr.Number(value=-1, precision=0, label="Seed (-1=random)")
             segment_len = gr.Number(value=81, precision=0, label="Segment length")
             segment_overlap = gr.Number(value=5, precision=0, label="Segment overlap")
+            fast_lora = gr.Checkbox(value=True, label="Fast 6-step LightX2V LoRA")
             max_persons = gr.Number(value=2, precision=0, label="Auto-mask max persons")
             sam_text = gr.Textbox(value="human character", label="SAM3 text prompts")
             matchnearest = gr.Checkbox(value=False, label="Replacement: match nearest driving actor")
@@ -152,6 +155,7 @@ with gr.Blocks(title="SCAIL-2 Wan Dance") as demo:
             seed,
             segment_len,
             segment_overlap,
+            fast_lora,
             max_persons,
             sam_text,
             matchnearest,

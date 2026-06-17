@@ -24,8 +24,9 @@ Copy the values from `runpod-template.env.example` into the template variables.
 ## 3. First start
 
 The UI starts immediately. In the background, the container downloads the
-official SCAIL-2 support files plus the already-converted Comfy-Org fp16
-safetensors file. Watch `/workspace/logs/wan-dance-startup.log`.
+official SCAIL-2 support files plus the already-converted Comfy-Org fp8-scaled
+safetensors file and the LightX2V fast LoRA. Watch
+`/workspace/logs/wan-dance-startup.log`.
 
 Set `DOWNLOAD_SAM3=1` only if the `HF_TOKEN` account has access to
 `facebook/sam3` and you want to prefetch it. Without prefetch, the first
@@ -37,7 +38,13 @@ mode without SAM3.
 Open the Pod HTTP endpoint on port `8188`.
 
 For a first test, use 512 x 896 or 896 x 512 and keep the driving video short.
-The default SCAIL-2 segment length is 81 frames at 16 fps.
+The default UI profile uses the fast workflow-style settings: 512 x 896,
+6 sampling steps, guidance 1.0, shift 5.0, LightX2V fast LoRA, and an
+81-frame SCAIL-2 segment length at 16 fps.
+
+For longer driving videos, SCAIL-2 is patched to use Scail2-infinity-style
+auto-windowing: 81-frame windows, 5-frame overlap, repeated final-frame padding
+for the last short window, and exact output trimming.
 
 The container applies a build-time SCAIL-2 attention patch so generation can
 fall back to PyTorch SDPA when `flash-attn` is not available. If you still hit

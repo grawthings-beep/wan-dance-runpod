@@ -20,10 +20,12 @@ export HF_HOME="${HF_HOME:-/workspace/.cache/huggingface}"
 export OUTPUT_DIR="${OUTPUT_DIR:-${WORKSPACE_DIR}/output}"
 export SCAIL2_CKPT_DIR="${SCAIL2_CKPT_DIR:-${MODEL_ROOT}/SCAIL-2}"
 export SCAIL2_WEIGHTS_DIR="${SCAIL2_WEIGHTS_DIR:-${MODEL_ROOT}/Comfy-Org-SCAIL-2}"
-export SCAIL2_SAFETENSORS="${SCAIL2_SAFETENSORS:-${SCAIL2_WEIGHTS_DIR}/diffusion_models/wan2.1_14B_SCAIL_2_fp16.safetensors}"
+export SCAIL2_SAFETENSORS="${SCAIL2_SAFETENSORS:-${SCAIL2_WEIGHTS_DIR}/diffusion_models/wan2.1_14B_SCAIL_2_fp8_scaled.safetensors}"
+export FAST_LORA_DIR="${FAST_LORA_DIR:-${MODEL_ROOT}/LightX2V-Wan2.1-I2V-14B}"
+export FAST_LORA_PATH="${FAST_LORA_PATH:-${FAST_LORA_DIR}/loras/Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors}"
 export SAM3_MODEL="${SAM3_MODEL:-${MODEL_ROOT}/sam3/sam3.pt}"
 
-if [[ ! -f "${RUNTIME_CONFIG}" ]]; then
+if [[ "${REFRESH_RUNTIME_CONFIG:-1}" == "1" || ! -f "${RUNTIME_CONFIG}" ]]; then
   cp "${APP_ROOT}/config/scail2-runtime.json" "${RUNTIME_CONFIG}"
 fi
 
@@ -32,11 +34,14 @@ if [[ "${DOWNLOAD_MODELS:-1}" != "1" ]]; then
   prepare_args+=("--skip-download")
   echo "[wan-dance] Skipping SCAIL-2 model downloads (DOWNLOAD_MODELS=${DOWNLOAD_MODELS:-0})."
 fi
+if [[ "${DOWNLOAD_FAST_LORA:-1}" == "1" ]]; then
+  prepare_args+=("--download-fast-lora")
+fi
 if [[ "${DOWNLOAD_SAM3:-0}" == "1" ]]; then
   prepare_args+=("--download-sam3")
 fi
 
-if [[ "${DOWNLOAD_MODELS:-1}" == "1" || "${DOWNLOAD_SAM3:-0}" == "1" ]]; then
+if [[ "${DOWNLOAD_MODELS:-1}" == "1" || "${DOWNLOAD_FAST_LORA:-1}" == "1" || "${DOWNLOAD_SAM3:-0}" == "1" ]]; then
   if [[ "${PREPARE_MODELS_BACKGROUND:-1}" == "1" ]]; then
     echo "[wan-dance] Preparing models in the background; UI will start immediately."
     "${PYTHON_BIN}" "${APP_ROOT}/scripts/prepare_models.py" "${prepare_args[@]}" &
