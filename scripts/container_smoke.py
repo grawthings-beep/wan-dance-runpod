@@ -16,6 +16,9 @@ sys.path.insert(0, str(COMFY))
 sys.argv = [sys.argv[0], "--cpu"]
 import comfy.options
 comfy.options.enable_args_parsing()
+# Match main.py: load the top-level utils package before nodes prepends the
+# comfy/ directory (which also contains a utils.py module) to sys.path.
+import utils.install_util
 import torch
 import nodes
 
