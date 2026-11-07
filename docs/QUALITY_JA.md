@@ -1,13 +1,17 @@
 # SCAIL-2 品質比較の使い方
 
-最初は `scail2-quality-runpod.json` を開きます。キャラ画像とダンス動画を入れ、
+更新後はまず `scail2-preflight-runpod.json` で動作確認します。約0.25MP・9フレーム・
+2ステップで、実GPUの生成からタイルVAEとMP4保存までを確認する専用設定です。
+画質評価用ではありません。成功後、`scail2-quality-runpod.json` を開きます。キャラ画像とダンス動画を入れ、
 プロンプトに実際のキャラの特徴を追記して約5秒だけ生成します。
-この構成の画質・速度・GPUメモリ使用量はまだ実機未測定です。
+品質版のユーザーログではRTX 6000 Ada 48GBで1窓40ステップに約87分かかり、
+旧版はその後のタイルVAEデコードで失敗しました。修正版のGPU完走・画質は未検証です。
 
-## 3つのworkflow
+## workflow
 
 | ファイル | 用途 |
 | --- | --- |
+| `scail2-preflight-runpod.json` | 更新後の短い動作確認。9フレーム・2ステップ、画質評価不可 |
 | `scail2-quality-runpod.json` | 基準の品質版。参照画像1枚、DPO強度1 |
 | `scail2-quality-multiref-runpod.json` | 同じキャラの顔アップ・背面・衣装詳細を1枚追加する実験版 |
 | `scail2-comfyui-infinity-runpod.json` | 元の高速版。6ステップ＋LightX2Vのまま |
@@ -66,6 +70,12 @@ SAT版の完全再現や、あなたの画像で検証済みの最適値では�
 生成時間とピークVRAMも記録して採用設定を決めます。
 
 ## 更新とモデル取得
+
+タイルVAEはComfyUI標準ノード経由で、空間・時間方向の重なり幅を明示します。
+万一デコードで失敗した場合、該当窓の計算済みlatentを出力先の
+`SCAIL/recovery/` に `.latent` 形式で保存してからエラーを返します。
+これは該当窓の救済用で、動画全体の自動再開機能ではありません。
+SQLiteの保存先も `/workspace/ComfyUI/user/comfyui.db` へ明示するよう修正しています。
 
 DPOは固定revisionの約1.23GBを追加取得し、SHA-256を検証します。モデル取得完了の
 ログを確認してから実行してください。旧Podのモデルだけで `DOWNLOAD_MODELS=0` にすると、

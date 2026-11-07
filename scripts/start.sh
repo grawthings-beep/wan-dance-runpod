@@ -100,6 +100,7 @@ if [[ "${START_COMFYUI:-1}" == "1" ]]; then
     --port "${PORT:-8188}" \
     --enable-cors-header "${COMFYUI_CORS_ORIGIN:-*}" \
     --user-directory "${COMFYUI_WORKSPACE_ROOT}/user" \
+    --database-url "sqlite:///${COMFYUI_WORKSPACE_ROOT}/user/comfyui.db" \
     --input-directory "${COMFYUI_INPUT_DIR}" \
     --output-directory "${COMFYUI_OUTPUT_DIR}" \
     ${COMFYUI_ARGS:-}

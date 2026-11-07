@@ -88,6 +88,8 @@ async def main():
     assert len(metadata["reference_latents"]) == 2
     assert metadata["ref_mask_28ch"].shape[1] == 4
     assert "reference_image" in infinity.INPUT_TYPES()["optional"]
+    from test_decode_runtime import check_decode_runtime
+    check_decode_runtime(importlib.import_module(infinity.__module__))
     print("CPU container smoke passed: real ComfyUI schemas, reference geometry, masks and conditioning.")
     print("GPU video generation and quality validation: NOT RUN")
 

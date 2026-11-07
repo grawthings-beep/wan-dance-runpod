@@ -141,14 +141,46 @@ def build(multi=False):
     return graph
 
 
+def build_preflight():
+    graph = build(False)
+    graph["id"] = "b7633254-67ba-4db9-811e-7293e05c0603"
+    nodes = {node["id"]: node for node in graph["nodes"]}
+    nodes[102]["widgets_values"][1] = 0.25
+    nodes[132]["widgets_values"][4] = 2
+    nodes[132]["widgets_values"][9] = 9
+    nodes[132]["widgets_values"][11] = 9
+    nodes[132]["title"] = "PREFLIGHT ONLY — 9 frames / 2 steps / tiled decode"
+    nodes[113]["widgets_values"]["frame_load_cap"] = 9
+    nodes[113]["title"] = "Preflight: first 9 frames only"
+    nodes[163]["widgets_values"]["filename_prefix"] = "SCAIL/scail2-preflight"
+    nodes[163]["widgets_values"]["trim_to_audio"] = False
+    audio_input = next(slot for slot in nodes[163]["inputs"] if slot["name"] == "audio")
+    audio_link = audio_input["link"]
+    audio_input["link"] = None
+    graph["links"] = [link for link in graph["links"] if link[0] != audio_link]
+    for node in graph["nodes"]:
+        for slot in node.get("outputs", []):
+            slot["links"] = [link for link in slot.get("links", []) if link != audio_link]
+    nodes[170]["widgets_values"] = [
+        "PREFLIGHT / 動作確認専用（画質評価には使わない）\n"
+        "キャラ画像とダンス動画を選び、マスクを確認して実行。\n"
+        "約0.25MP・9フレーム・2ステップで、実GPUの生成→タイルVAE→MP4保存を確認する。\n"
+        "LightX2Vなし・低ステップのため、出力が粗くても品質判定をしない。\n"
+        "成功してからquality版を使う。quality版は81フレーム窓・40ステップなので処理負荷が大きい。"
+    ]
+    return graph
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
-    for multi in (False, True):
-        name = "scail2-quality" + ("-multiref" if multi else "") + "-runpod.json"
+    variants = [("scail2-quality-runpod.json", build(False)),
+                ("scail2-quality-multiref-runpod.json", build(True)),
+                ("scail2-preflight-runpod.json", build_preflight())]
+    for name, graph in variants:
         path = ROOT / "workflows" / name
-        content = json.dumps(build(multi), ensure_ascii=False, indent=2) + "\n"
+        content = json.dumps(graph, ensure_ascii=False, indent=2) + "\n"
         if args.check:
             if not path.exists() or path.read_text(encoding="utf-8") != content:
                 raise SystemExit(f"Regenerate {name}: python scripts/build_quality_workflows.py")

@@ -46,7 +46,7 @@ Open the Pod HTTP endpoint on port `8188`.
 In ComfyUI, open:
 
 ```text
-scail2-quality-runpod.json
+scail2-preflight-runpod.json
 ```
 
 Place or upload these input files:
@@ -56,6 +56,8 @@ Place or upload these input files:
 /workspace/ComfyUI/input/driving.mp4
 ```
 
+First verify the nine-frame, two-step preflight completes decoding and saves an MP4.
+It is not a quality evaluation. Then open `scail2-quality-runpod.json`.
 The quality graph uses 40 steps, CFG 5, UniPC/simple, shift 3, and DPO strength 1.
 Set DPO strength to 0 for the comparison. Describe the actual character's face,
 hair, costume and scene in the positive prompt. LightX2V is not loaded here.

@@ -59,4 +59,4 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Validation scope
-        run: echo "CPU imports, graph schemas, reference geometry and masks verified. GPU video generation NOT RUN." >> "$GITHUB_STEP_SUMMARY"
+        run: echo "CPU imports, graph schemas, references, core 3D tiled decode and recovery latent verified. GPU video generation NOT RUN." >> "$GITHUB_STEP_SUMMARY"

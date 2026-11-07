@@ -7,7 +7,8 @@ includes a quality comparison path alongside the original six-step fast workflow
 
 | Workflow | Purpose | Sampling |
 | --- | --- | --- |
-| `scail2-quality-runpod.json` | **Start here:** one reference, DPO detail LoRA | 40 steps, CFG 5, UniPC/simple, shift 3 |
+| `scail2-preflight-runpod.json` | **Start here after updating:** verify generation, tiled decode and MP4 output; not a quality test | 9 frames, 2 steps, about 0.25 MP |
+| `scail2-quality-runpod.json` | Quality comparison: one reference, DPO detail LoRA | 40 steps, CFG 5, UniPC/simple, shift 3 |
 | `scail2-quality-multiref-runpod.json` | Experimental: add one face/back/costume view of the same character | Same quality settings |
 | `scail2-comfyui-infinity-runpod.json` | Original fast workflow, retained unchanged | LightX2V rank64, 6 steps, CFG 1, Euler/simple, shift 5 |
 
@@ -59,8 +60,10 @@ the same prompt, source trim, seed, resolution and DPO strength before adopting 
 - The existing fast path targets 48 GB VRAM or more. 24 GB remains experimental.
 - For the first quality/multi-reference GPU comparison, use an 80 GB-class Pod
   if available. This is a conservative test target, **not a measured minimum**.
-- Quality uses more denoising steps and CFG; it is expected to take longer.
-  No speedup, likeness improvement or RunPod memory requirement has been measured.
+- A user run on RTX 6000 Ada 48 GB took about 87 minutes for one 40-step window,
+  then exposed a tiled-decode argument bug. The fix routes decoding through the
+  core VAEDecodeTiled node with explicit overlaps. GPU completion and output
+  quality of the corrected run still need validation; start with preflight.
 - Keep the base image's CUDA/PyTorch stack. ComfyUI, VideoHelperSuite and the
   legacy SCAIL code pins remain unchanged.
 - Network volume: 100 GB recommended at `/workspace`; container disk: 30 GB+.
@@ -70,7 +73,8 @@ the same prompt, source trim, seed, resolution and DPO strength before adopting 
 CI validates workflow generation, graph wiring, model availability in the
 manifest, offline download behavior and workflow backups. The image build runs
 a **CPU smoke test against the actual pinned ComfyUI**, including reference
-geometry, mask semantics and multi-reference conditioning. This does not run
+geometry, mask semantics, multi-reference conditioning, the actual 3D tiler
+regression and recovery-latent roundtrip. This does not run
 the 14B model or validate GPU-generated videos.
 
 ## Quick start
@@ -82,16 +86,22 @@ the 14B model or validate GPU-generated videos.
 3. Provide `HF_TOKEN` through a RunPod Secret when required for model access.
 4. Open ComfyUI and wait for `ComfyUI model files ready` in
    `/workspace/logs/wan-dance-startup.log` before queueing.
-5. Open `scail2-quality-runpod.json`, upload the reference and dance video,
-   describe the actual character in the prompt, and run the short comparison.
+5. Open `scail2-preflight-runpod.json`, upload the reference and dance video,
+   and verify that the nine-frame test saves an MP4. Then open the quality graph,
+   describe the actual character in the prompt, and run the quality comparison.
 
 Outputs go to `/workspace/ComfyUI/output/SCAIL/`. Each profile has a distinct
 filename prefix. Full setup: [RUNPOD_STEPS.md](RUNPOD_STEPS.md).
 
-Startup installs all three workflows. If an existing bundled filename differs,
+Startup installs all bundled workflows. If an existing bundled filename differs,
 it first copies that file into a timestamped `workflow-backups` directory next
 to the workflows directory. Files saved under your own names are untouched.
 An already-open browser canvas must be reopened to use the updated graph.
+
+If decoding fails, the affected window's sampled latent is saved to
+`/workspace/ComfyUI/output/SCAIL/recovery/` before the original error is raised.
+The `.latent` file can be loaded and decoded separately; it is not an automatic
+resume of all windows. Older failed jobs did not save this recovery file.
 
 ## Runtime behavior
 
