@@ -21,6 +21,7 @@
     ],
     "scail_allow_patterns": [
       "diffusion_models/wan2.1_14B_SCAIL_2_fp8_scaled.safetensors",
+      "loras/wan2.1_SCAIL_2_DPO_lora_bf16.safetensors",
       "README.md"
     ],
     "required_files": [
@@ -130,6 +131,12 @@
         "source": "/workspace/scail2/models/Comfy-Org-sam3.1/checkpoints/sam3.1_multiplex_fp16.safetensors",
         "target": "checkpoints/sam3.1_multiplex_fp16.safetensors",
         "min_bytes": 1740000000
+      },
+      {
+        "source": "/workspace/scail2/models/Comfy-Org-SCAIL-2/loras/wan2.1_SCAIL_2_DPO_lora_bf16.safetensors",
+        "target": "loras/wan2.1_SCAIL_2_DPO_lora_bf16.safetensors",
+        "min_bytes": 1220000000,
+        "sha256": "b106522036f64e50f5f8ae3b808973515ff442cc2fac27b65d875eafb95b89e2"
       }
     ]
   }

@@ -2,6 +2,7 @@
 import argparse
 from contextlib import contextmanager
 import json
+import hashlib
 import os
 from pathlib import Path
 import shutil
@@ -25,12 +26,17 @@ def file_is_large_enough(path, min_bytes):
     return path.is_file() and path.stat().st_size >= int(min_bytes)
 
 
-def require_file(path, min_bytes, label):
+def require_file(path, min_bytes, label, sha256=None):
     if not file_is_large_enough(path, min_bytes):
         size = path.stat().st_size if path.exists() else 0
         raise RuntimeError(
             f"{label} is missing or too small: {path} ({size} bytes)"
         )
+    if sha256:
+        with path.open("rb") as stream:
+            actual = hashlib.file_digest(stream, "sha256").hexdigest()
+        if actual != sha256:
+            raise RuntimeError(f"{label} SHA-256 mismatch: {path}")
 
 
 def link_or_copy(source, target):
@@ -212,7 +218,7 @@ def ensure_sam3(config, required=False):
         return None
 
 
-def ensure_lightx2v_lora(config):
+def ensure_lightx2v_lora(config, skip_download=False):
     lora = config["lightx2v_lora"]
     lora_path = expand_path(
         os.environ.get("LIGHTX2V_LORA_PATH", lora["lora_path"])
@@ -221,12 +227,13 @@ def ensure_lightx2v_lora(config):
         print(f"SKIP Lightx2v LoRA: {lora_path}", flush=True)
         return lora_path
 
-    snapshot_download(
-        lora["model_repository"],
-        os.environ.get("LIGHTX2V_LORA_REVISION", lora["model_revision"]),
-        expand_path(lora["checkpoint_dir"]),
-        lora["allow_patterns"],
-    )
+    if not skip_download:
+        snapshot_download(
+            lora["model_repository"],
+            os.environ.get("LIGHTX2V_LORA_REVISION", lora["model_revision"]),
+            expand_path(lora["checkpoint_dir"]),
+            lora["allow_patterns"],
+        )
     require_file(lora_path, lora["min_bytes"], "Lightx2v LoRA")
     print(f"Lightx2v LoRA ready: {lora_path}", flush=True)
     return lora_path
@@ -266,14 +273,16 @@ def ensure_comfyui_models(config, skip_download=False, download_sam31=True):
                 comfy["sam31_allow_patterns"],
             )
 
-    ensure_lightx2v_lora(config)
+    ensure_lightx2v_lora(config, skip_download=skip_download)
 
     for item in comfy["required_files"]:
         source = expand_path(item["source"])
-        require_file(source, item["min_bytes"], f"ComfyUI model {item['target']}")
+        require_file(source, item["min_bytes"], f"ComfyUI model {item['target']}", item.get("sha256"))
         target = models_dir / item["target"]
         link_or_copy(source, target)
         require_file(target, item["min_bytes"], f"ComfyUI linked model {item['target']}")
+        if item.get("sha256") and source.resolve() != target.resolve():
+            require_file(target, item["min_bytes"], f"ComfyUI copied model {item['target']}", item["sha256"])
 
     print(f"ComfyUI model files ready: {models_dir}", flush=True)
 
@@ -306,7 +315,7 @@ def main():
         if args.download_sam3 or args.require_sam3:
             ensure_sam3(config, required=args.require_sam3)
         if args.download_lightx2v_lora and not args.download_comfyui:
-            ensure_lightx2v_lora(config)
+            ensure_lightx2v_lora(config, skip_download=args.skip_download)
 
 
 if __name__ == "__main__":

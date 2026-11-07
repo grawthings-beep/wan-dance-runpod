@@ -58,6 +58,7 @@ COPY custom_nodes/ /opt/wan-dance/custom_nodes/
 COPY workflows/ /opt/wan-dance/workflows/
 COPY scripts/ /opt/wan-dance/scripts/
 RUN chmod +x /opt/wan-dance/scripts/*.sh
+RUN python3.12 /opt/wan-dance/scripts/container_smoke.py
 
 EXPOSE 8188
 

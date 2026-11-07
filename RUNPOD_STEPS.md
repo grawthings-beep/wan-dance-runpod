@@ -5,7 +5,7 @@
 Push this repository to GitHub. GitHub Actions publishes:
 
 ```text
-ghcr.io/YOUR_GITHUB_NAME/wan-dance-runpod:latest
+ghcr.io/grawthings-beep/wan-dance-runpod:<40-character-commit>
 ```
 
 Make the GHCR package public, or configure RunPod registry credentials.
@@ -17,8 +17,9 @@ Make the GHCR package public, or configure RunPod registry credentials.
 - Network volume: 100 GB recommended
 - Volume mount path: `/workspace`
 - Expose HTTP port: `8188`
-- GPU: 48 GB VRAM recommended; 24 GB is experimental, and 80 GB-class GPUs are
-  better when speed matters
+- GPU: the existing fast path targets 48 GB VRAM. For the first quality and
+  multi-reference comparison, prefer an 80 GB-class GPU; this is a test target,
+  not a verified minimum. 24 GB remains experimental.
 
 Copy the values from `runpod-template.env.example` into the template variables.
 Use a RunPod Secret for `HF_TOKEN`; do not paste the token into logs or shared
@@ -30,6 +31,7 @@ ComfyUI starts immediately on port `8188`. In the background, the container
 downloads the ComfyUI model set:
 
 - `Comfy-Org/SCAIL-2` fp8-scaled SCAIL diffusion model
+- The same pinned repository's DPO detail LoRA (about 1.23 GB; SHA-256 verified)
 - `Comfy-Org/Wan_2.1_ComfyUI_repackaged` text encoder, VAE, and CLIP vision
 - LightX2V rank64 LoRA
 - `Comfy-Org/sam3.1` SAM3.1 checkpoint when `DOWNLOAD_SAM31=1`
@@ -44,7 +46,7 @@ Open the Pod HTTP endpoint on port `8188`.
 In ComfyUI, open:
 
 ```text
-scail2-comfyui-infinity-runpod.json
+scail2-quality-runpod.json
 ```
 
 Place or upload these input files:
@@ -54,9 +56,22 @@ Place or upload these input files:
 /workspace/ComfyUI/input/driving.mp4
 ```
 
-The bundled workflow is already set to 512 x 896, 6 sampling steps, CFG 1.0,
-Euler/simple, SD3 shift 5.0, LightX2V rank64 LoRA, and 81-frame windows with a
-5-frame overlap.
+The quality graph uses 40 steps, CFG 5, UniPC/simple, shift 3, and DPO strength 1.
+Set DPO strength to 0 for the comparison. Describe the actual character's face,
+hair, costume and scene in the positive prompt. LightX2V is not loaded here.
+
+The reference image determines the resolution (approximately 0.9 megapixels,
+aligned to 32). Generation uses 81-frame windows with a 5-frame overlap. Both
+video loading and generation are initially capped at 121 frames at 24 fps.
+For full-length generation, set both frame_load_cap and max_frames to 0.
+
+After the single-reference test, try `scail2-quality-multiref-runpod.json` with
+one additional face/back/detail view of the same character and outfit. Inspect
+the mask previews first. See [the Japanese guide](docs/QUALITY_JA.md).
+
+The original `scail2-comfyui-infinity-runpod.json` remains the six-step fast path.
+Reopen a bundled workflow after upgrading the image; existing browser canvases
+do not change automatically. Modified bundled files are backed up at startup.
 
 For the first test, keep the driving video short. If the short test is bad,
 avoid spending GPU time on a longer clip with the same input pair.

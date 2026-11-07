@@ -46,8 +46,10 @@ fi
 sync_comfy_assets() {
   mkdir -p "${COMFYUI_ROOT}/custom_nodes" "${COMFYUI_ROOT}/models"
   cp -a "${APP_ROOT}/custom_nodes/comfyui-scail2-infinity" "${COMFYUI_ROOT}/custom_nodes/"
-  cp "${APP_ROOT}/workflows/scail2-comfyui-infinity-runpod.json" "${COMFYUI_WORKSPACE_ROOT}/workflows/"
-  cp "${APP_ROOT}/workflows/scail2-comfyui-infinity-runpod.json" "${COMFYUI_WORKSPACE_ROOT}/user/default/workflows/"
+  "${PYTHON_BIN}" "${APP_ROOT}/scripts/install_workflows.py" \
+    --source "${APP_ROOT}/workflows" \
+    --destination "${COMFYUI_WORKSPACE_ROOT}/workflows" \
+    --destination "${COMFYUI_WORKSPACE_ROOT}/user/default/workflows"
 
   for model_subdir in checkpoints clip_vision diffusion_models loras text_encoders vae; do
     mkdir -p "${COMFYUI_MODELS_DIR}/${model_subdir}"

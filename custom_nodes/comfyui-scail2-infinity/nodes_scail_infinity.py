@@ -29,6 +29,7 @@ from comfy_api.latest import ComfyExtension, io
 # Reuse the core SCAIL conditioning node's logic verbatim (no duplication).
 from comfy_extras.nodes_scail import WanSCAILToVideo
 from nodes import common_ksampler
+from .nodes_reference_batch import WanSCAILReferenceBatch
 
 
 def _decode(vae, latent_samples, tiled: bool):
@@ -90,7 +91,7 @@ class WanSCAILInfinity(io.ComfyNode):
                 io.Float.Input("pose_start", default=0.0, min=0.0, max=1.0, step=0.01),
                 io.Float.Input("pose_end", default=1.0, min=0.0, max=1.0, step=0.01),
                 io.Image.Input("reference_image", optional=True,
-                               tooltip="Reference character image. For multiple references composite them on a single image."),
+                               tooltip="Primary character image first; extra batch images are other views of the same character, each with a matching colored mask."),
                 io.Image.Input("reference_image_mask", optional=True,
                                tooltip="SCAIL-2 colored reference mask, same resolution as reference_image."),
                 io.ClipVisionOutput.Input("clip_vision_output", optional=True,
@@ -207,7 +208,7 @@ class WanSCAILInfinity(io.ComfyNode):
 class SCAILInfinityExtension(ComfyExtension):
     @override
     async def get_node_list(self) -> list[type[io.ComfyNode]]:
-        return [WanSCAILInfinity]
+        return [WanSCAILInfinity, WanSCAILReferenceBatch]
 
 
 async def comfy_entrypoint() -> SCAILInfinityExtension:

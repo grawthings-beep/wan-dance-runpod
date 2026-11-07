@@ -106,7 +106,7 @@ def main():
     require("--download-comfyui" in prepare_script, "Model preparation must support ComfyUI models")
     require("link_or_copy" in prepare_script, "Model preparation must link ComfyUI model files")
     require("START_COMFYUI" in start_script, "Startup must default to ComfyUI")
-    require("scail2-comfyui-infinity-runpod.json" in start_script, "Startup must copy the bundled workflow")
+    require("install_workflows.py" in start_script, "Startup must install and back up bundled workflows")
     require("--enable-cors-header" in start_script, "ComfyUI must allow RunPod proxy origins")
     require("--user-directory" in start_script, "ComfyUI must use the persistent workspace user directory")
     env_template = (ROOT / "runpod-template.env.example").read_text(encoding="utf-8")
@@ -142,6 +142,9 @@ def main():
         "app.py",
         "job_worker.py",
         "validate_repo.py",
+        "build_quality_workflows.py",
+        "install_workflows.py",
+        "container_smoke.py",
     ]:
         py_compile.compile(str(ROOT / "scripts" / script), doraise=True)
 
@@ -205,6 +208,18 @@ def main():
     require("comfyui-kjnodes" not in workflow_text, "Workflow must not require KJNodes")
     require("Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors" in workflow_text, "Workflow must use bundled LightX2V rank64 LoRA")
 
+    for module in (ROOT / "custom_nodes").rglob("*.py"):
+        py_compile.compile(str(module), doraise=True)
+    from build_quality_workflows import build, DPO
+    for multi in (False, True):
+        name = "scail2-quality" + ("-multiref" if multi else "") + "-runpod.json"
+        expected = build(multi)
+        actual = json.loads((ROOT / "workflows" / name).read_text(encoding="utf-8"))
+        require(actual == expected, f"Regenerate quality workflow: {name}")
+    dpo = next((item for item in comfy["required_files"] if item["target"] == "loras/" + DPO), None)
+    require(dpo is not None, "Quality workflows require the DPO LoRA")
+    require(re.fullmatch(r"[0-9a-f]{64}", dpo.get("sha256", "")) is not None, "Pin DPO SHA-256")
+    require("loras/" + DPO in scail["scail_allow_patterns"], "DPO must be downloaded")
     print("Repository validation passed.")
     print(f"SCAIL-2 code: {scail['code_commit']}")
     print(f"SCAIL-2 model revision: {scail['model_revision']}")
