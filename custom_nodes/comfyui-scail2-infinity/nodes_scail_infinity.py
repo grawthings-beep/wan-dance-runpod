@@ -6,7 +6,7 @@ It reuses ComfyUI core verbatim:
   - comfy_extras.nodes_scail.WanSCAILToVideo.execute()  -> builds the per-chunk
     conditioning + empty latent + adjusted frame offset (pure function of inputs).
   - nodes.common_ksampler()                             -> samples each chunk.
-  - VAE.decode / VAE.decode_tiled                        -> pixels per chunk.
+  - VAE.decode / nodes.VAEDecodeTiled                    -> pixels per chunk.
 
 SCAIL-2 was trained at 81-frame chunks with a 5-frame overlap (76-frame step), so
 each chunk after the first is anchored on the last 5 decoded frames of the previous
@@ -29,14 +29,40 @@ from comfy_api.latest import ComfyExtension, io
 # Reuse the core SCAIL conditioning node's logic verbatim (no duplication).
 from comfy_extras.nodes_scail import WanSCAILToVideo
 from nodes import common_ksampler
+from .nodes_reference_batch import WanSCAILReferenceBatch
 
 
 def _decode(vae, latent_samples, tiled: bool):
     """Decode a video latent to (T, H, W, C), mirroring VAEDecode's 5D reshape."""
-    images = vae.decode_tiled(latent_samples) if tiled else vae.decode(latent_samples)
+    if tiled:
+        # The raw VAE API defaults overlap to None, which is invalid for 3D
+        # video tiling. The core node supplies overlaps and converts pixel/frame
+        # tile sizes to latent units using this VAE's compression factors.
+        return nodes.VAEDecodeTiled().decode(
+            vae, {"samples": latent_samples}, tile_size=512, overlap=64,
+            temporal_size=64, temporal_overlap=8,
+        )[0]
+    images = vae.decode(latent_samples)
     if len(images.shape) == 5:  # (B, T, H, W, C) -> combine batch+time
         images = images.reshape(-1, images.shape[-3], images.shape[-2], images.shape[-1])
     return images
+
+
+def _decode_and_preserve(vae, latent_samples, tiled, seed, window_index):
+    try:
+        return _decode(vae, latent_samples, tiled)
+    except Exception:
+        # Preserve expensive sampling work if decoding fails. This is a standard
+        # ComfyUI .latent for the failed window, not an automatic full-run resume.
+        try:
+            saved = nodes.SaveLatent().save(
+                {"samples": latent_samples.detach().cpu()},
+                filename_prefix=f"SCAIL/recovery/scail2-seed-{seed}-window-{window_index + 1}",
+            )
+            print(f"[SCAIL2-Infinity] Decode failed; saved recovery latent: {saved['ui']['latents']}", flush=True)
+        except Exception as backup_error:
+            print(f"[SCAIL2-Infinity] Could not save recovery latent: {backup_error}", flush=True)
+        raise
 
 
 class WanSCAILInfinity(io.ComfyNode):
@@ -90,7 +116,7 @@ class WanSCAILInfinity(io.ComfyNode):
                 io.Float.Input("pose_start", default=0.0, min=0.0, max=1.0, step=0.01),
                 io.Float.Input("pose_end", default=1.0, min=0.0, max=1.0, step=0.01),
                 io.Image.Input("reference_image", optional=True,
-                               tooltip="Reference character image. For multiple references composite them on a single image."),
+                               tooltip="Primary character image first; extra batch images are other views of the same character, each with a matching colored mask."),
                 io.Image.Input("reference_image_mask", optional=True,
                                tooltip="SCAIL-2 colored reference mask, same resolution as reference_image."),
                 io.ClipVisionOutput.Input("clip_vision_output", optional=True,
@@ -170,7 +196,8 @@ class WanSCAILInfinity(io.ComfyNode):
             chunk_latent = sampled["samples"]
 
             # --- 3) decode to pixels ---
-            imgs = _decode(vae, chunk_latent, decode_tiled)
+            print("[SCAIL2-Infinity]   decoding sampled latent...", flush=True)
+            imgs = _decode_and_preserve(vae, chunk_latent, decode_tiled, chunk_seed, window_index)
 
             # --- 4) stitch: drop the overlap frames on every chunk after the first ---
             new_imgs = imgs[anchor:]
@@ -207,7 +234,7 @@ class WanSCAILInfinity(io.ComfyNode):
 class SCAILInfinityExtension(ComfyExtension):
     @override
     async def get_node_list(self) -> list[type[io.ComfyNode]]:
-        return [WanSCAILInfinity]
+        return [WanSCAILInfinity, WanSCAILReferenceBatch]
 
 
 async def comfy_entrypoint() -> SCAILInfinityExtension:
